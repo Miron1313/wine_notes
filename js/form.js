@@ -116,7 +116,8 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
         ${field('함께한 사람', '', input('info.companions', i.companions))}
         ${field('라벨 사진', '', `<div class="photo">
             ${rec.photo ? `<img src="${rec.photo}" alt="라벨 사진"><button type="button" class="btn small ghost" id="photo-del">사진 삭제</button>` : ''}
-            <label class="btn small"><input type="file" accept="image/*" capture="environment" id="photo-input" hidden>📷 ${rec.photo ? '다시 찍기' : '사진 추가'}</label>
+            <label class="btn small"><input type="file" accept="image/*" capture="environment" class="photo-input" hidden>📷 ${rec.photo ? '다시 찍기' : '촬영'}</label>
+            <label class="btn small"><input type="file" accept="image/*" class="photo-input" hidden>🖼️ 갤러리에서 선택</label>
           </div>`)}
       </section>
 
@@ -198,7 +199,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     if (e.target.id === 'blind-toggle') {
       rec.blind.enabled = e.target.checked;
       rerender();
-    } else if (e.target.id === 'photo-input' && e.target.files[0]) {
+    } else if (e.target.classList.contains('photo-input') && e.target.files[0]) {
       try {
         rec.photo = await resizeImage(e.target.files[0]);
         dirty = true;
