@@ -1,7 +1,11 @@
 // 새 기록 / 수정 / 블라인드 정답 공개 화면
-import { SAT, LEXICON, GRAPES, COUNTRIES, COLORS, STYLES, VINTAGE_BANDS, PRICE_BANDS } from '../data/wset-l2-sat.js';
+import {
+  SAT, LEXICON, GRAPES, COUNTRIES, COLOR_KEYS, STYLE_KEYS, VINTAGE_BAND_KEYS, PRICE_BAND_KEYS,
+} from '../data/wset-l2-sat.js';
 import { db } from './db.js';
-import { emptyRecord, normalize, isHidden, autoScore, BLIND_KEYS, bandKo } from './model.js';
+import { emptyRecord, normalize, isHidden, autoScore, BLIND_KEYS, blindKeyLabel, bandLabel } from './model.js';
+import { t, hint } from './i18n.js';
+import { priceBandLabel } from './money.js';
 import { esc, $, $$, toast, resizeImage } from './util.js';
 
 const getPath = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
@@ -11,16 +15,26 @@ const setPath = (obj, path, v) => {
   keys.reduce((o, k) => o[k], obj)[last] = v;
 };
 
-// koOnly: 값은 영문 키로 저장하고 화면에는 한글만 표시 (색·스타일 등)
-function chips(path, scale, value, { koOnly = false } = {}) {
-  return `<div class="chips" data-path="${path}">${scale.map(([en, ko]) => `
-    <button type="button" class="chip${value === en ? ' on' : ''}" data-v="${esc(en)}">${koOnly
-      ? esc(ko) : `${esc(en)}${ko ? `<small>${esc(ko)}</small>` : ''}`}</button>`).join('')}</div>`;
+// SAT 칩: 영문 용어 + 언어별 작은 힌트. 항목 [en, ko, ru]
+function chips(path, scale, value) {
+  return `<div class="chips" data-path="${path}">${scale.map((item) => {
+    const h = hint(item);
+    return `<button type="button" class="chip${value === item[0] ? ' on' : ''}" data-v="${esc(item[0])}">${esc(item[0])}${h ? `<small>${esc(h)}</small>` : ''}</button>`;
+  }).join('')}</div>`;
 }
 
-function field(label, ko, inner) {
-  return `<div class="field"><div class="flabel">${esc(label)}${ko ? ` <span class="ko">${esc(ko)}</span>` : ''}</div>${inner}</div>`;
+// 선택지 칩: 값은 키로 저장하고 화면에는 번역 라벨만 표시 (색·스타일 등). 항목 [key, label]
+function optionChips(path, options, value) {
+  return `<div class="chips" data-path="${path}">${options.map(([k, label]) => `
+    <button type="button" class="chip${value === k ? ' on' : ''}" data-v="${esc(k)}">${esc(label)}</button>`).join('')}</div>`;
 }
+
+function field(label, sub, inner) {
+  return `<div class="field"><div class="flabel">${esc(label)}${sub ? ` <span class="ko">${esc(sub)}</span>` : ''}</div>${inner}</div>`;
+}
+
+// SAT 항목 라벨 (영문 + 언어별 힌트)
+const satField = (f, inner) => field(f.label, hint(f), inner);
 
 function input(path, value, { type = 'text', placeholder = '', list = '', inputmode = '' } = {}) {
   return `<input type="${type}" data-path="${path}" value="${esc(value)}" placeholder="${esc(placeholder)}"
@@ -33,20 +47,23 @@ function textarea(path, value, placeholder = '') {
 
 function lexiconPicker(path, selected) {
   const sel = new Set(selected);
+  const sub = (x) => (hint(x) ? ` <span class="ko">${esc(hint(x))}</span>` : '');
   return `<div class="lexicon" data-path="${path}">
-    <div class="selected">${selected.length ? selected.map((t) => `
-      <button type="button" class="chip on small" data-remove="${esc(t)}">${esc(t)} ✕</button>`).join('')
-      : '<span class="muted">아래에서 고르거나 직접 입력하세요</span>'}</div>
+    <div class="selected">${selected.length ? selected.map((term) => `
+      <button type="button" class="chip on small" data-remove="${esc(term)}">${esc(term)} ✕</button>`).join('')
+      : `<span class="muted">${esc(t('lex.empty'))}</span>`}</div>
     <div class="row">
-      <input type="text" class="custom-term" placeholder="직접 입력 (예: wet slate)">
-      <button type="button" class="btn small" data-add-term>추가</button>
+      <input type="text" class="custom-term" placeholder="${esc(t('lex.custom'))}">
+      <button type="button" class="btn small" data-add-term>${esc(t('btn.add'))}</button>
     </div>
     ${LEXICON.map((g) => `
-      <details class="lex-group"><summary>${esc(g.group)} <span class="ko">${esc(g.ko)}</span></summary>
+      <details class="lex-group"><summary>${esc(g.group)}${sub(g)}</summary>
       ${g.clusters.map((c) => `
-        <div class="cluster"><div class="cluster-name">${esc(c.name)} <span class="ko">${esc(c.ko)}</span></div>
-        <div class="chips">${c.terms.map(([en, ko]) => `
-          <button type="button" class="chip small${sel.has(en) ? ' on' : ''}" data-term="${esc(en)}">${esc(en)}<small>${esc(ko)}</small></button>`).join('')}
+        <div class="cluster"><div class="cluster-name">${esc(c.name)}${sub(c)}</div>
+        <div class="chips">${c.terms.map((term) => {
+          const h = hint(term);
+          return `<button type="button" class="chip small${sel.has(term[0]) ? ' on' : ''}" data-term="${esc(term[0])}">${esc(term[0])}${h ? `<small>${esc(h)}</small>` : ''}</button>`;
+        }).join('')}
         </div></div>`).join('')}
       </details>`).join('')}
   </div>`;
@@ -54,7 +71,7 @@ function lexiconPicker(path, selected) {
 
 export async function renderForm(root, { id, blind = false, reveal = false } = {}) {
   const raw = id ? await db.get(id) : null;
-  if (id && !raw) { root.innerHTML = '<p class="empty">기록을 찾을 수 없습니다.</p>'; return null; }
+  if (id && !raw) { root.innerHTML = `<p class="empty">${esc(t('notFound'))}</p>`; return null; }
   const rec = raw ? normalize(raw) : emptyRecord({ blind });
   const isNew = !id;
   const manual = new Set(); // 사용자가 직접 바꾼 채점 항목
@@ -64,20 +81,20 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
 
   function scoreBox() {
     const g = rec.blind.guess;
-    return `<div class="score-list">${BLIND_KEYS.map(([k, ko]) => {
+    return `<div class="score-list">${BLIND_KEYS.map((k) => {
       const v = rec.blind.result[k];
-      const guess = k.endsWith('Band') ? bandKo(g[k]) : g[k];
+      const guess = k.endsWith('Band') ? (g[k] && bandLabel(g[k])) : g[k];
       const cls = v === true ? 'ok' : v === false ? 'ng' : 'na';
-      const mark = v === true ? '✓ 정답' : v === false ? '✗ 오답' : '– 미채점';
-      return `<div class="score-row"><div><b>${ko}</b><div class="muted">내 추론: ${esc(guess || '—')}</div></div>
-        <button type="button" class="score ${cls}" data-score="${k}">${mark}</button></div>`;
-    }).join('')}</div><p class="muted small">자동 채점 결과입니다. 버튼을 누르면 정답 → 오답 → 미채점 순서로 바뀝니다.</p>`;
+      const mark = t(v === true ? 'score.correct' : v === false ? 'score.wrong' : 'score.none');
+      return `<div class="score-row"><div><b>${esc(blindKeyLabel(k))}</b><div class="muted">${esc(t('score.myGuess', guess || '—'))}</div></div>
+        <button type="button" class="score ${cls}" data-score="${k}">${esc(mark)}</button></div>`;
+    }).join('')}</div><p class="muted small">${esc(t('score.help'))}</p>`;
   }
 
   function rescore() {
     if (!reveal) return;
     const auto = autoScore(rec);
-    for (const [k] of BLIND_KEYS) if (!manual.has(k)) rec.blind.result[k] = auto[k];
+    for (const k of BLIND_KEYS) if (!manual.has(k)) rec.blind.result[k] = auto[k];
     const box = $('#score-box', root);
     if (box) box.innerHTML = scoreBox();
   }
@@ -86,90 +103,95 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     const i = rec.info;
     const s = rec.sat;
     const hidden = !showAnswers();
-    const colourScale = SAT.appearance.fields.colour.byColor[i.color] || [];
+    const af = SAT.appearance.fields;
+    const nf = SAT.nose.fields;
     const pf = SAT.palate.fields;
+    const qf = SAT.conclusion.fields.quality;
+    const eg = (x) => t('eg', x);
+    const formTitle = reveal ? 'form.titleReveal'
+      : isNew ? (rec.blind.enabled ? 'form.titleNewBlind' : 'form.titleNew') : 'form.titleEdit';
 
     root.innerHTML = `
     <form class="form" autocomplete="off" onsubmit="return false">
-      <h1>${reveal ? '블라인드 정답 공개' : isNew ? (rec.blind.enabled ? '새 블라인드 테이스팅' : '새 테이스팅') : '기록 수정'}</h1>
+      <h1>${esc(t(formTitle))}</h1>
 
       ${isNew ? `<label class="toggle"><input type="checkbox" id="blind-toggle" ${rec.blind.enabled ? 'checked' : ''}>
-        <span>블라인드 모드 <small class="muted">품종·산지를 가리고 먼저 추론합니다</small></span></label>` : ''}
+        <span>${esc(t('form.blindMode'))} <small class="muted">${esc(t('form.blindModeHint'))}</small></span></label>` : ''}
 
-      <section id="sec-info"><h2>기본 정보</h2>
-        ${field('색', '', chips('info.color', COLORS, i.color, { koOnly: true }))}
-        ${field('스타일', '', chips('info.style', STYLES, i.style, { koOnly: true }))}
-        ${hidden ? '<p class="note">🙈 블라인드 중이라 이름·품종·산지·빈티지·가격은 정답 공개 때 입력합니다.</p>' : `
-          ${field('와인 이름', '', input('info.name', i.name, { placeholder: '예: Chablis Premier Cru' }))}
-          ${field('생산자', '', input('info.producer', i.producer, { placeholder: '예: William Fèvre' }))}
-          ${field('빈티지', '', input('info.vintage', i.vintage, { type: 'number', placeholder: '예: 2021', inputmode: 'numeric' }))}
-          ${field('품종', '', `<div class="selected" id="grape-list">${i.grapes.map((gname) => `
+      <section id="sec-info"><h2>${esc(t('sec.info'))}</h2>
+        ${field(t('f.color'), '', optionChips('info.color', COLOR_KEYS.map((k) => [k, t(`color.${k}`)]), i.color))}
+        ${field(t('f.style'), '', optionChips('info.style', STYLE_KEYS.map((k) => [k, t(`style.${k}`)]), i.style))}
+        ${hidden ? `<p class="note">${esc(t('form.hiddenNote'))}</p>` : `
+          ${field(t('f.name'), '', input('info.name', i.name, { placeholder: eg('Chablis Premier Cru') }))}
+          ${field(t('f.producer'), '', input('info.producer', i.producer, { placeholder: eg('William Fèvre') }))}
+          ${field(t('f.vintage'), '', input('info.vintage', i.vintage, { type: 'number', placeholder: eg('2021'), inputmode: 'numeric' }))}
+          ${field(t('f.grapes'), '', `<div class="selected" id="grape-list">${i.grapes.map((gname) => `
               <button type="button" class="chip on small" data-remove-grape="${esc(gname)}">${esc(gname)} ✕</button>`).join('')}</div>
-            <div class="row"><input type="text" id="grape-input" list="dl-grapes" placeholder="품종 입력 후 추가">
-            <button type="button" class="btn small" id="grape-add">추가</button></div>`)}
-          ${field('국가', '', input('info.country', i.country, { list: 'dl-countries', placeholder: '예: France' }))}
-          ${field('산지', '', input('info.region', i.region, { placeholder: '예: Chablis, Burgundy' }))}
-          ${field('가격', '', input('info.price', i.price, { type: 'number', placeholder: '원', inputmode: 'numeric' }))}
-          ${field('구매처', '', input('info.shop', i.shop, { placeholder: '예: 이마트, 와인앤모어' }))}`}
-        ${field('날짜', '', input('info.date', i.date, { type: 'date' }))}
-        ${field('장소', '', input('info.place', i.place, { placeholder: '예: 집, WSET 수업' }))}
-        ${field('함께한 사람', '', input('info.companions', i.companions))}
-        ${field('라벨 사진', '', `<div class="photo">
-            ${rec.photo ? `<img src="${rec.photo}" alt="라벨 사진"><button type="button" class="btn small ghost" id="photo-del">사진 삭제</button>` : ''}
-            <label class="btn small"><input type="file" accept="image/*" capture="environment" class="photo-input" hidden>📷 ${rec.photo ? '다시 찍기' : '촬영'}</label>
-            <label class="btn small"><input type="file" accept="image/*" class="photo-input" hidden>🖼️ 갤러리에서 선택</label>
+            <div class="row"><input type="text" id="grape-input" list="dl-grapes" placeholder="${esc(t('ph.grapeInput'))}">
+            <button type="button" class="btn small" id="grape-add">${esc(t('btn.add'))}</button></div>`)}
+          ${field(t('f.country'), '', input('info.country', i.country, { list: 'dl-countries', placeholder: eg('France') }))}
+          ${field(t('f.region'), '', input('info.region', i.region, { placeholder: eg('Chablis, Burgundy') }))}
+          ${field(t('f.price'), '₩', input('info.price', i.price, { type: 'number', placeholder: '₩', inputmode: 'numeric' }))}
+          ${field(t('f.shop'), '', input('info.shop', i.shop, { placeholder: t('ph.shop') }))}`}
+        ${field(t('f.date'), '', input('info.date', i.date, { type: 'date' }))}
+        ${field(t('f.place'), '', input('info.place', i.place, { placeholder: t('ph.place') }))}
+        ${field(t('f.companions'), '', input('info.companions', i.companions))}
+        ${field(t('f.photo'), '', `<div class="photo">
+            ${rec.photo ? `<img src="${rec.photo}" alt="${esc(t('photo.alt'))}"><button type="button" class="btn small ghost" id="photo-del">${esc(t('photo.del'))}</button>` : ''}
+            <label class="btn small"><input type="file" accept="image/*" capture="environment" class="photo-input" hidden>📷 ${esc(t(rec.photo ? 'photo.retake' : 'photo.take'))}</label>
+            <label class="btn small"><input type="file" accept="image/*" class="photo-input" hidden>🖼️ ${esc(t('photo.gallery'))}</label>
           </div>`)}
       </section>
 
-      <section id="sec-appearance"><h2>Appearance <span class="ko">외관</span></h2>
-        ${field('Clarity', '투명도', chips('sat.appearance.clarity', SAT.appearance.fields.clarity.scale, s.appearance.clarity))}
-        ${field('Intensity', '색의 농도', chips('sat.appearance.intensity', SAT.appearance.fields.intensity.scale, s.appearance.intensity))}
-        ${field('Colour', '색', chips('sat.appearance.colour', colourScale, s.appearance.colour))}
+      <section id="sec-appearance"><h2>${SAT.appearance.label}${hint(SAT.appearance) ? ` <span class="ko">${esc(hint(SAT.appearance))}</span>` : ''}</h2>
+        ${satField(af.clarity, chips('sat.appearance.clarity', af.clarity.scale, s.appearance.clarity))}
+        ${satField(af.intensity, chips('sat.appearance.intensity', af.intensity.scale, s.appearance.intensity))}
+        ${satField(af.colour, chips('sat.appearance.colour', af.colour.byColor[i.color] || [], s.appearance.colour))}
       </section>
 
-      <section id="sec-nose"><h2>Nose <span class="ko">향</span></h2>
-        ${field('Condition', '상태', chips('sat.nose.condition', SAT.nose.fields.condition.scale, s.nose.condition))}
-        ${field('Intensity', '강도', chips('sat.nose.intensity', SAT.nose.fields.intensity.scale, s.nose.intensity))}
-        ${field('Aroma characteristics', '아로마', lexiconPicker('sat.nose.aromas', s.nose.aromas))}
-        ${field('메모', '', textarea('sat.nose.notes', s.nose.notes, '자유롭게 느낀 점'))}
+      <section id="sec-nose"><h2>${SAT.nose.label}${hint(SAT.nose) ? ` <span class="ko">${esc(hint(SAT.nose))}</span>` : ''}</h2>
+        ${satField(nf.condition, chips('sat.nose.condition', nf.condition.scale, s.nose.condition))}
+        ${satField(nf.intensity, chips('sat.nose.intensity', nf.intensity.scale, s.nose.intensity))}
+        ${satField(nf.aromas, lexiconPicker('sat.nose.aromas', s.nose.aromas))}
+        ${field(t('f.notes'), '', textarea('sat.nose.notes', s.nose.notes, t('ph.noseNotes')))}
       </section>
 
-      <section id="sec-palate"><h2>Palate <span class="ko">맛</span></h2>
+      <section id="sec-palate"><h2>${SAT.palate.label}${hint(SAT.palate) ? ` <span class="ko">${esc(hint(SAT.palate))}</span>` : ''}</h2>
         ${['sweetness', 'acidity', 'tannin', 'alcohol', 'body', 'flavourIntensity'].map((k) => {
           if (k === 'tannin' && i.color !== 'red' && !s.palate.tannin) return '';
-          return field(pf[k].label, pf[k].ko, chips(`sat.palate.${k}`, pf[k].scale, s.palate[k]));
+          return satField(pf[k], chips(`sat.palate.${k}`, pf[k].scale, s.palate[k]));
         }).join('')}
-        ${field('Flavour characteristics', '풍미', `
-          <button type="button" class="btn small ghost" id="copy-aromas">↓ 향에서 고른 것 가져오기</button>
+        ${satField(pf.flavours, `
+          <button type="button" class="btn small ghost" id="copy-aromas">${esc(t('copyAromas'))}</button>
           ${lexiconPicker('sat.palate.flavours', s.palate.flavours)}`)}
-        ${field(pf.finish.label, pf.finish.ko, chips('sat.palate.finish', pf.finish.scale, s.palate.finish))}
-        ${field('메모', '', textarea('sat.palate.notes', s.palate.notes))}
+        ${satField(pf.finish, chips('sat.palate.finish', pf.finish.scale, s.palate.finish))}
+        ${field(t('f.notes'), '', textarea('sat.palate.notes', s.palate.notes))}
       </section>
 
-      <section id="sec-conclusion"><h2>Conclusions <span class="ko">결론</span></h2>
-        ${field('Quality level', '품질', chips('sat.conclusion.quality', SAT.conclusion.fields.quality.scale, s.conclusion.quality))}
-        ${field('품질 판단 근거', '', textarea('sat.conclusion.reason', s.conclusion.reason, '예: balance 좋음, finish long, 풍미 강도 pronounced → very good'))}
+      <section id="sec-conclusion"><h2>${SAT.conclusion.label}${hint(SAT.conclusion) ? ` <span class="ko">${esc(hint(SAT.conclusion))}</span>` : ''}</h2>
+        ${satField(qf, chips('sat.conclusion.quality', qf.scale, s.conclusion.quality))}
+        ${field(t('f.qualityReason'), '', textarea('sat.conclusion.reason', s.conclusion.reason, t('ph.qualityReason')))}
       </section>
 
-      ${rec.blind.enabled ? `<section id="sec-blind"><h2>🕵️ 블라인드 추론</h2>
+      ${rec.blind.enabled ? `<section id="sec-blind"><h2>${esc(t('sec.blind'))}</h2>
         ${reveal || rec.blind.revealed ? `<div id="score-box">${scoreBox()}</div>` : `
-          ${field('품종', '', input('blind.guess.grape', rec.blind.guess.grape, { list: 'dl-grapes', placeholder: '예: Chardonnay' }))}
-          ${field('국가', '', input('blind.guess.country', rec.blind.guess.country, { list: 'dl-countries' }))}
-          ${field('산지', '', input('blind.guess.region', rec.blind.guess.region, { placeholder: '예: Burgundy' }))}
-          ${field('빈티지대', '수확 후 경과 연수', chips('blind.guess.vintageBand', VINTAGE_BANDS, rec.blind.guess.vintageBand, { koOnly: true }))}
-          ${field('가격대', '', chips('blind.guess.priceBand', PRICE_BANDS, rec.blind.guess.priceBand, { koOnly: true }))}`}
+          ${field(t('bk.grape'), '', input('blind.guess.grape', rec.blind.guess.grape, { list: 'dl-grapes', placeholder: eg('Chardonnay') }))}
+          ${field(t('bk.country'), '', input('blind.guess.country', rec.blind.guess.country, { list: 'dl-countries' }))}
+          ${field(t('bk.region'), '', input('blind.guess.region', rec.blind.guess.region, { placeholder: eg('Burgundy') }))}
+          ${field(t('f.vintageBand'), t('f.vintageBandHint'), optionChips('blind.guess.vintageBand', VINTAGE_BAND_KEYS.map((k) => [k, t(`vb.${k}`)]), rec.blind.guess.vintageBand))}
+          ${field(t('f.priceBand'), '₩', optionChips('blind.guess.priceBand', PRICE_BAND_KEYS.map((k) => [k, priceBandLabel(k)]), rec.blind.guess.priceBand))}`}
       </section>` : ''}
 
-      <section id="sec-personal"><h2>나의 평가</h2>
-        ${field('별점', '', `<div class="stars" data-path="personal.rating">${[1, 2, 3, 4, 5].map((n) => `
-          <button type="button" data-star="${n}" class="${n <= rec.personal.rating ? 'on' : ''}" aria-label="${n}점">★</button>`).join('')}</div>`)}
-        ${field('재구매 의사', '', chips('personal.rebuy', [['yes', '살래요'], ['maybe', '글쎄'], ['no', '안 사요']], rec.personal.rebuy, { koOnly: true }))}
-        ${field('메모', '', textarea('personal.notes', rec.personal.notes, '페어링, 기억할 점'))}
+      <section id="sec-personal"><h2>${esc(t('sec.personal'))}</h2>
+        ${field(t('f.rating'), '', `<div class="stars" data-path="personal.rating">${[1, 2, 3, 4, 5].map((n) => `
+          <button type="button" data-star="${n}" class="${n <= rec.personal.rating ? 'on' : ''}" aria-label="${n}">★</button>`).join('')}</div>`)}
+        ${field(t('f.rebuy'), '', optionChips('personal.rebuy', ['yes', 'maybe', 'no'].map((k) => [k, t(`rebuy.${k}`)]), rec.personal.rebuy))}
+        ${field(t('f.notes'), '', textarea('personal.notes', rec.personal.notes, t('ph.personalNotes')))}
       </section>
 
       <div class="actions">
-        ${!isNew ? '<button type="button" class="btn danger ghost" id="delete">삭제</button>' : ''}
-        <button type="button" class="btn primary" id="save">${reveal ? '채점 결과 저장' : '저장'}</button>
+        ${!isNew ? `<button type="button" class="btn danger ghost" id="delete">${esc(t('btn.delete'))}</button>` : ''}
+        <button type="button" class="btn primary" id="save">${esc(t(reveal ? 'btn.saveScore' : 'btn.save'))}</button>
       </div>
     </form>
     <datalist id="dl-grapes">${GRAPES.map((g) => `<option value="${esc(g)}">`).join('')}</datalist>
@@ -181,6 +203,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     const open = $$('details[open]', root).map((d) => [...$$('details', root)].indexOf(d));
     render();
     $$('details', root).forEach((d, idx) => { if (open.includes(idx)) d.open = true; });
+    if (reveal) rescore();
     window.scrollTo(0, y);
   }
 
@@ -204,40 +227,40 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
         rec.photo = await resizeImage(e.target.files[0]);
         dirty = true;
         rerender();
-      } catch (err) { toast(err.message); }
+      } catch { toast(t('photo.readFail')); }
     }
   };
 
   root.onclick = (e) => {
-    const t = e.target.closest('button');
-    if (!t) return;
+    const b = e.target.closest('button');
+    if (!b) return;
 
     // 단일 선택 칩 (같은 칩을 다시 누르면 해제)
-    const group = t.closest('.chips[data-path]');
-    if (group && t.dataset.v !== undefined) {
+    const group = b.closest('.chips[data-path]');
+    if (group && b.dataset.v !== undefined) {
       const p = group.dataset.path;
-      const v = getPath(rec, p) === t.dataset.v && !p.startsWith('info.') ? '' : t.dataset.v;
+      const v = getPath(rec, p) === b.dataset.v && !p.startsWith('info.') ? '' : b.dataset.v;
       setPath(rec, p, v);
       dirty = true;
       if (p === 'info.color') {
         if (!SAT.appearance.fields.colour.byColor[v]?.some(([en]) => en === rec.sat.appearance.colour)) rec.sat.appearance.colour = '';
         rerender();
       } else {
-        $$('.chip', group).forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+        $$('.chip', group).forEach((c) => c.classList.toggle('on', c.dataset.v === v));
       }
       return;
     }
 
     // 아로마/풍미 용어
-    const lex = t.closest('.lexicon');
+    const lex = b.closest('.lexicon');
     if (lex) {
       const arr = getPath(rec, lex.dataset.path);
-      if (t.dataset.term) {
-        const idx = arr.indexOf(t.dataset.term);
-        if (idx >= 0) arr.splice(idx, 1); else arr.push(t.dataset.term);
-      } else if (t.dataset.remove) {
-        arr.splice(arr.indexOf(t.dataset.remove), 1);
-      } else if (t.hasAttribute('data-add-term')) {
+      if (b.dataset.term) {
+        const idx = arr.indexOf(b.dataset.term);
+        if (idx >= 0) arr.splice(idx, 1); else arr.push(b.dataset.term);
+      } else if (b.dataset.remove) {
+        arr.splice(arr.indexOf(b.dataset.remove), 1);
+      } else if (b.hasAttribute('data-add-term')) {
         const inp = $('.custom-term', lex);
         const v = inp.value.trim();
         if (v && !arr.includes(v)) arr.push(v);
@@ -247,16 +270,16 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
       return;
     }
 
-    if (t.dataset.star) {
-      const n = Number(t.dataset.star);
+    if (b.dataset.star) {
+      const n = Number(b.dataset.star);
       rec.personal.rating = rec.personal.rating === n ? 0 : n;
       dirty = true;
-      $$('.stars button', root).forEach((b) => b.classList.toggle('on', Number(b.dataset.star) <= rec.personal.rating));
+      $$('.stars button', root).forEach((s) => s.classList.toggle('on', Number(s.dataset.star) <= rec.personal.rating));
       return;
     }
 
-    if (t.dataset.score) {
-      const k = t.dataset.score;
+    if (b.dataset.score) {
+      const k = b.dataset.score;
       const cur = rec.blind.result[k];
       rec.blind.result[k] = cur === true ? false : cur === false ? null : true;
       manual.add(k);
@@ -265,20 +288,19 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
       return;
     }
 
-    if (t.dataset.removeGrape) {
-      rec.info.grapes = rec.info.grapes.filter((g) => g !== t.dataset.removeGrape);
+    if (b.dataset.removeGrape) {
+      rec.info.grapes = rec.info.grapes.filter((g) => g !== b.dataset.removeGrape);
       dirty = true;
       rerender();
       return;
     }
 
-    switch (t.id) {
+    switch (b.id) {
       case 'grape-add': {
         const v = $('#grape-input', root).value.trim();
         if (v && !rec.info.grapes.includes(v)) rec.info.grapes.push(v);
         dirty = true;
         rerender();
-        rescore();
         break;
       }
       case 'copy-aromas':
@@ -292,8 +314,8 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
         rerender();
         break;
       case 'delete':
-        if (confirm('이 기록을 삭제할까요? 되돌릴 수 없습니다.')) {
-          db.remove(rec.id).then(() => { dirty = false; toast('삭제했습니다'); location.hash = '#/'; });
+        if (confirm(t('confirm.delete'))) {
+          db.remove(rec.id).then(() => { dirty = false; toast(t('toast.deleted')); location.hash = '#/'; });
         }
         break;
       case 'save':
@@ -313,7 +335,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
   async function save() {
     if (reveal) {
       if (!rec.info.grapes.length && !rec.info.country) {
-        toast('정답(품종이나 국가)을 하나 이상 입력해 주세요');
+        toast(t('toast.needAnswer'));
         return;
       }
       rec.blind.revealed = true;
@@ -322,13 +344,15 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     try {
       await db.put(rec);
       dirty = false;
-      toast(reveal ? '채점 결과를 저장했습니다' : '저장했습니다');
+      toast(t(reveal ? 'toast.scoreSaved' : 'toast.saved'));
       location.hash = `#/view/${rec.id}`;
     } catch (err) {
-      toast(`저장 실패: ${err.message}`);
+      toast(t('toast.saveFail', err.message));
     }
   }
 
-  // 저장하지 않고 나갈 때 확인
-  return () => !dirty || confirm('저장하지 않은 내용이 있습니다. 나갈까요?');
+  // 저장하지 않고 나갈 때 확인. 언어를 바꾸면 입력 내용을 유지한 채 다시 그림
+  const guard = () => !dirty || confirm(t('confirm.leave'));
+  guard.rerender = rerender;
+  return guard;
 }

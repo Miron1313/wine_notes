@@ -1,5 +1,7 @@
 // 기록 데이터 구조와 블라인드 채점
-import { SAT, vintageBand, priceBand, COLORS, STYLES, VINTAGE_BANDS, PRICE_BANDS } from '../data/wset-l2-sat.js';
+import { SAT, vintageBand } from '../data/wset-l2-sat.js';
+import { priceBand, priceBandLabel } from './money.js';
+import { t, hint } from './i18n.js';
 import { newId } from './db.js';
 import { today } from './util.js';
 
@@ -48,9 +50,7 @@ export function normalize(r) {
 
 export const isHidden = (r) => r.blind.enabled && !r.blind.revealed;
 
-export const BLIND_KEYS = [
-  ['grape', '품종'], ['country', '국가'], ['region', '산지'], ['vintageBand', '빈티지대'], ['priceBand', '가격대'],
-];
+export const BLIND_KEYS = ['grape', 'country', 'region', 'vintageBand', 'priceBand'];
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
@@ -79,13 +79,14 @@ export function blindScore(r) {
 }
 
 // 표시용 라벨
-export const colorKo = (c) => COLORS.find(([k]) => k === c)?.[1] || c;
-export const styleKo = (s) => STYLES.find(([k]) => k === s)?.[1] || s;
-export const bandKo = (k) => [...VINTAGE_BANDS, ...PRICE_BANDS].find(([v]) => v === k)?.[1] || k;
+export const colorLabel = (c) => t(`color.${c}`);
+export const styleLabel = (s) => t(`style.${s}`);
+export const blindKeyLabel = (k) => t(`bk.${k}`);
+export const bandLabel = (k) => (k.includes('k') ? priceBandLabel(k) : t(`vb.${k}`));
 
 export function title(r) {
-  if (isHidden(r)) return `블라인드 #${r.id.slice(0, 4)}`;
-  return [r.info.producer, r.info.name].filter(Boolean).join(' ') || '(이름 없음)';
+  if (isHidden(r)) return t('blindNo', r.id.slice(0, 4));
+  return [r.info.producer, r.info.name].filter(Boolean).join(' ') || t('untitled');
 }
 
 // SAT 결과를 시험 답안처럼 한 줄씩 정리
@@ -98,7 +99,7 @@ export function satLines(r) {
       if (f.redOnly && r.info.color !== 'red' && !v) continue;
       if (Array.isArray(v)) { if (v.length) rows.push([f.label, v.join(', ')]); } else if (v) rows.push([f.label, v]);
     }
-    out.push({ key: sk, label: sec.label, ko: sec.ko, rows });
+    out.push({ key: sk, label: sec.label, hint: hint(sec), rows });
   }
   return out;
 }
