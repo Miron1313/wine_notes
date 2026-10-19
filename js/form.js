@@ -152,6 +152,9 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
       <section id="sec-nose"><h2>${SAT.nose.label}${hint(SAT.nose) ? ` <span class="ko">${esc(hint(SAT.nose))}</span>` : ''}</h2>
         ${satField(nf.condition, chips('sat.nose.condition', nf.condition.scale, s.nose.condition))}
         ${satField(nf.intensity, chips('sat.nose.intensity', nf.intensity.scale, s.nose.intensity))}
+        ${satField(nf.openness, chips('sat.nose.openness', nf.openness.scale, s.nose.openness))}
+        ${s.nose.openness === 'closed' || s.nose.openness === 'opening' || s.nose.openedAfter
+          ? satField(nf.openedAfter, chips('sat.nose.openedAfter', nf.openedAfter.scale, s.nose.openedAfter)) : ''}
         ${satField(nf.aromas, lexiconPicker('sat.nose.aromas', s.nose.aromas))}
         ${field(t('f.notes'), '', textarea('sat.nose.notes', s.nose.notes, t('ph.noseNotes')))}
       </section>
@@ -242,7 +245,9 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
       const v = getPath(rec, p) === b.dataset.v && !p.startsWith('info.') ? '' : b.dataset.v;
       setPath(rec, p, v);
       dirty = true;
-      if (p === 'info.color') {
+      if (p === 'sat.nose.openness') {
+        rerender(); // 닫힘·열리는 중일 때만 '열린 시점' 표시
+      } else if (p === 'info.color') {
         if (!SAT.appearance.fields.colour.byColor[v]?.some(([en]) => en === rec.sat.appearance.colour)) rec.sat.appearance.colour = '';
         rerender();
       } else {

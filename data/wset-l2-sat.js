@@ -26,6 +26,16 @@ export const SAT = {
     fields: {
       condition: { label: 'Condition', ko: '상태', ru: 'Состояние', scale: [['clean', '깨끗함', 'чистый'], ['unclean (faulty?)', '이취·결함?', 'нечистый (дефект?)']] },
       intensity: { label: 'Intensity', ko: '강도', ru: 'Интенсивность', scale: LMP_F },
+      // WSET SAT 공식 항목이 아닌 개인 기록용 (첫 향이 닫혀 있다가 시간이 지나 열리는 경우)
+      openness: {
+        label: 'Openness', ko: '열림 정도 · WSET 외', ru: 'Раскрытость · вне WSET', extra: true,
+        scale: [['closed', '닫힘', 'закрытое'], ['opening', '열리는 중', 'раскрывается'], ['open', '열림', 'открытое']],
+      },
+      openedAfter: {
+        label: 'Opened up after', ko: '열린 시점 · WSET 외', ru: 'Раскрылось через · вне WSET', extra: true,
+        scale: [['15 min', '15분', '15 мин'], ['30 min', '30분', '30 мин'], ['1 hr', '1시간', '1 ч'],
+          ['2 hr+', '2시간 이상', '2 ч и больше'], ['did not open', '끝까지 안 열림', 'так и не раскрылось']],
+      },
       aromas: { label: 'Aroma characteristics', ko: '아로마 특징', ru: 'Ароматы', lexicon: true },
     },
   },
