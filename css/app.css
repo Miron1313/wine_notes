@@ -88,6 +88,7 @@ h3 { font-size: 0.95rem; margin: 16px 0 6px; }
 }
 .tabbar a span { font-size: 0.7rem; }
 .tabbar a.on { color: var(--primary); }
+.tabbar .fab.on { color: var(--primary-ink); } /* 새 기록 화면에서도 + 가 보이도록 */
 .tabbar .fab {
   width: 54px; height: 54px; margin: -22px auto 0; border-radius: 50%;
   background: var(--primary); color: var(--primary-ink); font-size: 1.8rem;

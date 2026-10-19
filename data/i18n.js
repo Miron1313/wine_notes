@@ -35,7 +35,7 @@ export const STRINGS = {
     'score.help': '자동 채점 결과입니다. 버튼을 누르면 정답 → 오답 → 미채점 순서로 바뀝니다.',
     'bk.grape': '품종', 'bk.country': '국가', 'bk.region': '산지', 'bk.vintageBand': '빈티지대', 'bk.priceBand': '가격대',
     'color.white': '화이트', 'color.rose': '로제', 'color.red': '레드',
-    'style.still': '스틸', 'style.sparkling': '스파클링', 'style.sweet': '스위트', 'style.fortified': '주정강화',
+    'style.still': '일반 (스틸)', 'style.sparkling': '스파클링', 'style.sweet': '스위트', 'style.fortified': '주정강화',
     'vb.0-3': '0–3년 (영)', 'vb.4-7': '4–7년', 'vb.8-15': '8–15년', 'vb.16+': '16년 이상',
     notFound: '기록을 찾을 수 없습니다.', untitled: '(이름 없음)', blindNo: '블라인드 #{x}',
     'confirm.delete': '이 기록을 삭제할까요? 되돌릴 수 없습니다.', 'confirm.leave': '저장하지 않은 내용이 있습니다. 나갈까요?',
