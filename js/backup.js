@@ -1,6 +1,7 @@
 // 백업·복원·CSV 내보내기
 import { db } from './db.js';
-import { normalize, isHidden, title, colorKo } from './model.js';
+import { normalize, isHidden, title, colorLabel } from './model.js';
+import { t } from './i18n.js';
 import { download, today } from './util.js';
 
 const LAST_BACKUP = 'wine-log:lastBackup';
@@ -37,7 +38,7 @@ export async function exportJSON() {
 export async function importJSON(file) {
   const data = JSON.parse(await file.text());
   const rows = Array.isArray(data) ? data : data.tastings;
-  if (!Array.isArray(rows)) throw new Error('와인 기록 백업 파일이 아닙니다');
+  if (!Array.isArray(rows)) throw new Error(t('import.invalid'));
   let added = 0; let updated = 0; let skipped = 0;
   for (const raw of rows) {
     if (!raw?.id) { skipped++; continue; }
@@ -51,24 +52,25 @@ export async function importJSON(file) {
 export async function exportCSV() {
   const rows = await db.all();
   const cols = [
-    ['날짜', (r) => r.info.date], ['와인', (r) => title(r)], ['빈티지', (r) => r.info.vintage],
-    ['색', (r) => colorKo(r.info.color)], ['품종', (r) => r.info.grapes.join(' / ')], ['국가', (r) => r.info.country],
-    ['산지', (r) => r.info.region], ['가격', (r) => r.info.price], ['구매처', (r) => r.info.shop],
-    ['장소', (r) => r.info.place], ['함께', (r) => r.info.companions],
-    ['Clarity', (r) => r.sat.appearance.clarity], ['Intensity(외관)', (r) => r.sat.appearance.intensity], ['Colour', (r) => r.sat.appearance.colour],
-    ['Condition', (r) => r.sat.nose.condition], ['Intensity(향)', (r) => r.sat.nose.intensity], ['Aromas', (r) => r.sat.nose.aromas.join(', ')],
+    [t('f.date'), (r) => r.info.date], [t('csv.wine'), (r) => title(r)], [t('f.vintage'), (r) => r.info.vintage],
+    [t('f.color'), (r) => colorLabel(r.info.color)], [t('f.grapes'), (r) => r.info.grapes.join(' / ')], [t('f.country'), (r) => r.info.country],
+    [t('f.region'), (r) => r.info.region], [t('f.price'), (r) => r.info.price], [t('f.currency'), (r) => (r.info.price ? r.info.currency : '')],
+    [t('f.shop'), (r) => r.info.shop], [t('f.place'), (r) => r.info.place], [t('f.companions'), (r) => r.info.companions],
+    ['Clarity', (r) => r.sat.appearance.clarity], ['Intensity (appearance)', (r) => r.sat.appearance.intensity], ['Colour', (r) => r.sat.appearance.colour],
+    ['Condition', (r) => r.sat.nose.condition], ['Intensity (nose)', (r) => r.sat.nose.intensity], ['Aromas', (r) => r.sat.nose.aromas.join(', ')],
     ['Sweetness', (r) => r.sat.palate.sweetness], ['Acidity', (r) => r.sat.palate.acidity], ['Tannin', (r) => r.sat.palate.tannin],
     ['Alcohol', (r) => r.sat.palate.alcohol], ['Body', (r) => r.sat.palate.body], ['Flavour intensity', (r) => r.sat.palate.flavourIntensity],
     ['Flavours', (r) => r.sat.palate.flavours.join(', ')], ['Finish', (r) => r.sat.palate.finish],
-    ['Quality', (r) => r.sat.conclusion.quality], ['품질 근거', (r) => r.sat.conclusion.reason],
-    ['블라인드', (r) => (r.blind.enabled ? (isHidden(r) ? '진행 중' : '완료') : '')],
-    ['추론 품종', (r) => r.blind.guess.grape], ['추론 국가', (r) => r.blind.guess.country],
-    ['별점', (r) => r.personal.rating || ''], ['재구매', (r) => r.personal.rebuy], ['메모', (r) => r.personal.notes],
+    ['Quality', (r) => r.sat.conclusion.quality], [t('f.qualityReason'), (r) => r.sat.conclusion.reason],
+    [t('csv.blind'), (r) => (r.blind.enabled ? t(isHidden(r) ? 'csv.inProgress' : 'csv.done') : '')],
+    [t('csv.guessGrape'), (r) => r.blind.guess.grape], [t('csv.guessCountry'), (r) => r.blind.guess.country],
+    [t('f.rating'), (r) => r.personal.rating || ''], [t('f.rebuy'), (r) => (r.personal.rebuy ? t(`rebuy.${r.personal.rebuy}`) : '')],
+    [t('f.notes'), (r) => r.personal.notes],
   ];
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [cols.map(([h]) => cell(h)).join(',')]
     .concat(rows.map((r) => cols.map(([, f]) => cell(f(normalize(r)))).join(',')));
-  // 엑셀에서 한글이 깨지지 않도록 BOM 추가
+  // 엑셀에서 한글·러시아어가 깨지지 않도록 BOM 추가
   download(`${today()}-wine-log.csv`, `﻿${lines.join('\r\n')}`, 'text/csv;charset=utf-8');
   return rows.length;
 }

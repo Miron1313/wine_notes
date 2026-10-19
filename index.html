@@ -16,22 +16,23 @@
 </head>
 <body>
   <header class="topbar">
-    <a href="#/" class="brand">🍷 와인노트 <small>WSET L2</small></a>
+    <a href="#/" class="brand">🍷 <span data-i18n="app.name">와인노트</span> <small>WSET L2</small></a>
+    <label class="lang-pick">🌐<select id="lang-select" aria-label="Language"></select></label>
   </header>
 
   <main id="view" class="container"></main>
 
   <div id="new-menu" class="new-menu" hidden>
-    <a href="#/new" class="btn primary">📝 새 테이스팅</a>
-    <a href="#/new?blind=1" class="btn">🕵️ 블라인드 테이스팅</a>
+    <a href="#/new" class="btn primary" data-i18n="menu.new">📝 새 테이스팅</a>
+    <a href="#/new?blind=1" class="btn" data-i18n="menu.blind">🕵️ 블라인드 테이스팅</a>
   </div>
 
   <nav class="tabbar">
-    <a href="#/">📋<span>기록</span></a>
-    <a href="#/stats">📊<span>통계</span></a>
-    <a href="#/new" id="fab" class="fab" aria-label="새 기록">＋</a>
-    <a href="#/compare">⇆<span>비교</span></a>
-    <a href="#/settings">⚙️<span>백업</span></a>
+    <a href="#/">📋<span data-i18n="nav.list">기록</span></a>
+    <a href="#/stats">📊<span data-i18n="nav.stats">통계</span></a>
+    <a href="#/new" id="fab" class="fab" aria-label="새 기록" data-i18n-aria="nav.new">＋</a>
+    <a href="#/compare">⇆<span data-i18n="nav.compare">비교</span></a>
+    <a href="#/settings">⚙️<span data-i18n="nav.settings">설정</span></a>
   </nav>
 
   <div id="toast" class="toast" role="status" hidden></div>

@@ -19,8 +19,6 @@ export const today = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export const won = (n) => (n ? `${Number(n).toLocaleString('ko-KR')}원` : '');
-
 // 라벨 사진: 긴 변 1024px, JPEG 0.8로 줄여 dataURL로 저장
 export function resizeImage(file, max = 1024, quality = 0.8) {
   return new Promise((resolve, reject) => {
@@ -35,7 +33,7 @@ export function resizeImage(file, max = 1024, quality = 0.8) {
       URL.revokeObjectURL(url);
       resolve(c.toDataURL('image/jpeg', quality));
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없습니다')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
     img.src = url;
   });
 }

@@ -1,9 +1,11 @@
 // 기록 데이터 구조와 블라인드 채점
-import { SAT, vintageBand, priceBand, COLORS, STYLES, VINTAGE_BANDS, PRICE_BANDS } from '../data/wset-l2-sat.js';
+import { SAT, vintageBand } from '../data/wset-l2-sat.js';
+import { priceBand, priceBandLabel } from './currency.js';
+import { t, hint } from './i18n.js';
 import { newId } from './db.js';
 import { today } from './util.js';
 
-export function emptyRecord({ blind = false } = {}) {
+export function emptyRecord({ blind = false, currency = 'KRW' } = {}) {
   const now = Date.now();
   return {
     id: newId(),
@@ -12,7 +14,7 @@ export function emptyRecord({ blind = false } = {}) {
     info: {
       name: '', producer: '', vintage: '', color: 'red', style: 'still',
       grapes: [], country: '', region: '',
-      price: '', shop: '', date: today(), place: '', companions: '',
+      price: '', currency, shop: '', date: today(), place: '', companions: '',
     },
     photo: '',
     sat: {
@@ -33,9 +35,9 @@ export function emptyRecord({ blind = false } = {}) {
   };
 }
 
-// 이전 버전 기록이나 가져온 파일에 빠진 필드를 채움
+// 이전 버전 기록이나 가져온 파일에 빠진 필드를 채움 (통화가 없던 기록은 원화)
 export function normalize(r) {
-  const base = emptyRecord();
+  const base = emptyRecord({ currency: 'KRW' });
   const merge = (a, b) => {
     const out = { ...a };
     for (const k of Object.keys(b || {})) {
@@ -48,9 +50,7 @@ export function normalize(r) {
 
 export const isHidden = (r) => r.blind.enabled && !r.blind.revealed;
 
-export const BLIND_KEYS = [
-  ['grape', '품종'], ['country', '국가'], ['region', '산지'], ['vintageBand', '빈티지대'], ['priceBand', '가격대'],
-];
+export const BLIND_KEYS = ['grape', 'country', 'region', 'vintageBand', 'priceBand'];
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
@@ -68,7 +68,8 @@ export function autoScore(r) {
     ? norm(i.region).includes(norm(g.region)) || norm(g.region).includes(norm(i.region)) : null;
   const vb = vintageBand(i.vintage, i.date);
   res.vintageBand = g.vintageBand && vb ? g.vintageBand === vb : null;
-  const pb = priceBand(i.price);
+  // 가격대는 실제 가격을 현재 환율로 원화 환산해 비교
+  const pb = priceBand(i.price, i.currency);
   res.priceBand = g.priceBand && pb ? g.priceBand === pb : null;
   return res;
 }
@@ -79,13 +80,14 @@ export function blindScore(r) {
 }
 
 // 표시용 라벨
-export const colorKo = (c) => COLORS.find(([k]) => k === c)?.[1] || c;
-export const styleKo = (s) => STYLES.find(([k]) => k === s)?.[1] || s;
-export const bandKo = (k) => [...VINTAGE_BANDS, ...PRICE_BANDS].find(([v]) => v === k)?.[1] || k;
+export const colorLabel = (c) => t(`color.${c}`);
+export const styleLabel = (s) => t(`style.${s}`);
+export const blindKeyLabel = (k) => t(`bk.${k}`);
+export const bandLabel = (k) => (k.includes('k') ? priceBandLabel(k) : t(`vb.${k}`));
 
 export function title(r) {
-  if (isHidden(r)) return `블라인드 #${r.id.slice(0, 4)}`;
-  return [r.info.producer, r.info.name].filter(Boolean).join(' ') || '(이름 없음)';
+  if (isHidden(r)) return t('blindNo', r.id.slice(0, 4));
+  return [r.info.producer, r.info.name].filter(Boolean).join(' ') || t('untitled');
 }
 
 // SAT 결과를 시험 답안처럼 한 줄씩 정리
@@ -98,7 +100,7 @@ export function satLines(r) {
       if (f.redOnly && r.info.color !== 'red' && !v) continue;
       if (Array.isArray(v)) { if (v.length) rows.push([f.label, v.join(', ')]); } else if (v) rows.push([f.label, v]);
     }
-    out.push({ key: sk, label: sec.label, ko: sec.ko, rows });
+    out.push({ key: sk, label: sec.label, hint: hint(sec), rows });
   }
   return out;
 }

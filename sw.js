@@ -1,10 +1,11 @@
 // 오프라인 지원: 앱 파일을 캐시해 두고, 온라인이면 새 버전을 받아 갱신
 // 앱 파일을 바꾸면 VERSION을 올려 주세요.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `wine-log-${VERSION}`;
 const ASSETS = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/db.js', './js/util.js', './js/model.js', './js/form.js', './js/stats.js', './js/backup.js',
+  './js/i18n.js', './js/currency.js', './data/i18n.js',
   './data/wset-l2-sat.js', './icons/icon.svg', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
 ];
 
