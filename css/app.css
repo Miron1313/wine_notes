@@ -68,12 +68,10 @@ h3 { font-size: 0.95rem; margin: 16px 0 6px; }
 .brand { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lang-pick { flex: 0 0 auto; }
 .lang-pick { display: inline-flex; align-items: center; gap: 4px; font-size: 0.95rem; }
-.lang-pick select, .price-row select {
+.lang-pick select {
   min-height: 36px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 10px;
   background: var(--surface-2); color: var(--text); font: inherit; font-size: 16px;
 }
-.price-row { margin-top: 0; }
-.price-row select { min-height: 44px; flex: 0 0 auto; }
 .brand small { color: var(--muted); font-weight: 500; font-size: 0.75rem; margin-left: 4px; }
 
 /* 하단 탭바 */

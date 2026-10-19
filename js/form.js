@@ -5,7 +5,7 @@ import {
 import { db } from './db.js';
 import { emptyRecord, normalize, isHidden, autoScore, BLIND_KEYS, blindKeyLabel, bandLabel } from './model.js';
 import { t, hint } from './i18n.js';
-import { CURRENCIES, getCurrency, priceBandLabel } from './currency.js';
+import { priceBandLabel } from './money.js';
 import { esc, $, $$, toast, resizeImage } from './util.js';
 
 const getPath = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
@@ -72,7 +72,7 @@ function lexiconPicker(path, selected) {
 export async function renderForm(root, { id, blind = false, reveal = false } = {}) {
   const raw = id ? await db.get(id) : null;
   if (id && !raw) { root.innerHTML = `<p class="empty">${esc(t('notFound'))}</p>`; return null; }
-  const rec = raw ? normalize(raw) : emptyRecord({ blind, currency: getCurrency() });
+  const rec = raw ? normalize(raw) : emptyRecord({ blind });
   const isNew = !id;
   const manual = new Set(); // 사용자가 직접 바꾼 채점 항목
   let dirty = false;
@@ -131,10 +131,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
             <button type="button" class="btn small" id="grape-add">${esc(t('btn.add'))}</button></div>`)}
           ${field(t('f.country'), '', input('info.country', i.country, { list: 'dl-countries', placeholder: eg('France') }))}
           ${field(t('f.region'), '', input('info.region', i.region, { placeholder: eg('Chablis, Burgundy') }))}
-          ${field(t('f.price'), '', `<div class="row price-row">
-              ${input('info.price', i.price, { type: 'number', placeholder: i.currency, inputmode: 'decimal' })}
-              <select data-path="info.currency" aria-label="${esc(t('f.currency'))}">${CURRENCIES.map((c) => `
-                <option value="${c}"${i.currency === c ? ' selected' : ''}>${c}</option>`).join('')}</select></div>`)}
+          ${field(t('f.price'), '₩', input('info.price', i.price, { type: 'number', placeholder: '₩', inputmode: 'numeric' }))}
           ${field(t('f.shop'), '', input('info.shop', i.shop, { placeholder: t('ph.shop') }))}`}
         ${field(t('f.date'), '', input('info.date', i.date, { type: 'date' }))}
         ${field(t('f.place'), '', input('info.place', i.place, { placeholder: t('ph.place') }))}
@@ -182,7 +179,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
           ${field(t('bk.country'), '', input('blind.guess.country', rec.blind.guess.country, { list: 'dl-countries' }))}
           ${field(t('bk.region'), '', input('blind.guess.region', rec.blind.guess.region, { placeholder: eg('Burgundy') }))}
           ${field(t('f.vintageBand'), t('f.vintageBandHint'), optionChips('blind.guess.vintageBand', VINTAGE_BAND_KEYS.map((k) => [k, t(`vb.${k}`)]), rec.blind.guess.vintageBand))}
-          ${field(t('f.priceBand'), getCurrency(), optionChips('blind.guess.priceBand', PRICE_BAND_KEYS.map((k) => [k, priceBandLabel(k)]), rec.blind.guess.priceBand))}`}
+          ${field(t('f.priceBand'), '₩', optionChips('blind.guess.priceBand', PRICE_BAND_KEYS.map((k) => [k, priceBandLabel(k)]), rec.blind.guess.priceBand))}`}
       </section>` : ''}
 
       <section id="sec-personal"><h2>${esc(t('sec.personal'))}</h2>
@@ -218,7 +215,6 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     if (!p) return;
     setPath(rec, p, e.target.value);
     dirty = true;
-    if (p === 'info.currency') { const inp = $('[data-path="info.price"]', root); if (inp) inp.placeholder = e.target.value; }
     if (p.startsWith('info.')) rescore();
   };
 
@@ -355,7 +351,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     }
   }
 
-  // 저장하지 않고 나갈 때 확인. 언어·통화를 바꾸면 입력 내용을 유지한 채 다시 그림
+  // 저장하지 않고 나갈 때 확인. 언어를 바꾸면 입력 내용을 유지한 채 다시 그림
   const guard = () => !dirty || confirm(t('confirm.leave'));
   guard.rerender = rerender;
   return guard;

@@ -54,7 +54,7 @@ export async function exportCSV() {
   const cols = [
     [t('f.date'), (r) => r.info.date], [t('csv.wine'), (r) => title(r)], [t('f.vintage'), (r) => r.info.vintage],
     [t('f.color'), (r) => colorLabel(r.info.color)], [t('f.grapes'), (r) => r.info.grapes.join(' / ')], [t('f.country'), (r) => r.info.country],
-    [t('f.region'), (r) => r.info.region], [t('f.price'), (r) => r.info.price], [t('f.currency'), (r) => (r.info.price ? r.info.currency : '')],
+    [t('f.region'), (r) => r.info.region], [t('f.price'), (r) => r.info.price],
     [t('f.shop'), (r) => r.info.shop], [t('f.place'), (r) => r.info.place], [t('f.companions'), (r) => r.info.companions],
     ['Clarity', (r) => r.sat.appearance.clarity], ['Intensity (appearance)', (r) => r.sat.appearance.intensity], ['Colour', (r) => r.sat.appearance.colour],
     ['Condition', (r) => r.sat.nose.condition], ['Intensity (nose)', (r) => r.sat.nose.intensity], ['Aromas', (r) => r.sat.nose.aromas.join(', ')],

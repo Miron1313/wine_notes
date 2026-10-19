@@ -7,7 +7,7 @@ import { renderForm } from './form.js';
 import { renderStats, renderCompare } from './stats.js';
 import { exportJSON, importJSON, exportCSV, lastBackup, needsBackupReminder } from './backup.js';
 import { t, getLang, setLang, locale, LANGS } from './i18n.js';
-import { CURRENCIES, getCurrency, setCurrency, fxInfo, refreshRates, priceText, formatMoney } from './currency.js';
+import { formatKRW } from './money.js';
 import { COLOR_KEYS } from '../data/wset-l2-sat.js';
 import { esc, $, $$, toast } from './util.js';
 
@@ -100,7 +100,7 @@ async function renderView(id) {
   const sc = r.blind.enabled && r.blind.revealed ? blindScore(r) : null;
   const info = hidden ? [] : [
     [t('f.grapes'), i.grapes.join(', ')], [t('f.region'), [i.region, i.country].filter(Boolean).join(', ')],
-    [t('f.price'), [priceText(i.price, i.currency), i.shop].filter(Boolean).join(' · ')],
+    [t('f.price'), [formatKRW(i.price), i.shop].filter(Boolean).join(' · ')],
   ];
   info.push([t('f.style'), `${colorLabel(i.color)} · ${styleLabel(i.style)}`], [t('f.date'), i.date],
     [t('f.place'), i.place], [t('f.companions'), i.companions]);
@@ -152,13 +152,6 @@ async function doBackup() {
   } catch (e) { toast(t('toast.backupFail', e.message)); }
 }
 
-function ratesLine() {
-  const fx = fxInfo();
-  const per = (c) => formatMoney(1 / fx.rates[c], 'KRW');
-  const when = fx.source === 'built-in' ? `${fx.date} · ${t('fx.builtin')}` : `${fx.date} · ${fx.source}`;
-  return `1 USD = ${per('USD')} · 1 RUB = ${per('RUB')}<br><span class="muted">${esc(t('fx.asOf', when))}</span>`;
-}
-
 async function renderSettings() {
   const count = (await db.all()).length;
   const last = lastBackup();
@@ -172,13 +165,6 @@ async function renderSettings() {
     <section class="card"><h2>${esc(t('settings.lang'))}</h2>
       <div class="chips" id="lang-chips">${LANGS.map(([k, l]) => `
         <button class="chip${getLang() === k ? ' on' : ''}" data-lang="${k}">${esc(l)}</button>`).join('')}</div>
-    </section>
-    <section class="card"><h2>${esc(t('settings.currency'))}</h2>
-      <div class="chips" id="cur-chips">${CURRENCIES.map((c) => `
-        <button class="chip${getCurrency() === c ? ' on' : ''}" data-cur="${c}">${c}</button>`).join('')}</div>
-      <p class="muted small">${esc(t('settings.currencyHint'))}</p>
-      <p class="small"><b>${esc(t('fx.rates'))}</b><br><span id="fx-line">${ratesLine()}</span></p>
-      <button class="btn small" id="fx-refresh">↻ ${esc(t('fx.refresh'))}</button>
     </section>
     <section class="card"><h2>${esc(t('settings.backup'))}</h2>
       <p>${t('backup.summary', { n: count, d: esc(last ? new Date(last).toLocaleDateString(locale()) : t('backup.none')) })}</p>
@@ -201,17 +187,6 @@ async function renderSettings() {
     <p class="muted small center">${esc(t('footer'))}</p>`;
 
   $('#lang-chips').onclick = (e) => { const b = e.target.closest('[data-lang]'); if (b) changeLang(b.dataset.lang); };
-  $('#cur-chips').onclick = (e) => {
-    const b = e.target.closest('[data-cur]');
-    if (!b) return;
-    setCurrency(b.dataset.cur);
-    renderSettings();
-  };
-  $('#fx-refresh').onclick = async () => {
-    const ok = await refreshRates({ force: true });
-    toast(t(ok ? 'fx.updated' : 'fx.failed'), 3000);
-    $('#fx-line').innerHTML = ratesLine();
-  };
   $('#backup').onclick = async () => { await doBackup(); renderSettings(); };
   $('#csv').onclick = async () => { const n = await exportCSV(); toast(t('toast.csv', n)); };
   $('#restore').onchange = async (e) => {
@@ -298,11 +273,6 @@ $('#lang-select').onchange = (e) => changeLang(e.target.value);
 applyStaticText();
 requestPersist();
 route();
-
-// 환율은 백그라운드에서 갱신하고, 설정 화면을 보고 있으면 바로 반영
-refreshRates().then((updated) => {
-  if (updated && location.hash.startsWith('#/settings')) $('#fx-line').innerHTML = ratesLine();
-});
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});

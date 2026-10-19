@@ -1,11 +1,11 @@
 // 기록 데이터 구조와 블라인드 채점
 import { SAT, vintageBand } from '../data/wset-l2-sat.js';
-import { priceBand, priceBandLabel } from './currency.js';
+import { priceBand, priceBandLabel } from './money.js';
 import { t, hint } from './i18n.js';
 import { newId } from './db.js';
 import { today } from './util.js';
 
-export function emptyRecord({ blind = false, currency = 'KRW' } = {}) {
+export function emptyRecord({ blind = false } = {}) {
   const now = Date.now();
   return {
     id: newId(),
@@ -14,7 +14,7 @@ export function emptyRecord({ blind = false, currency = 'KRW' } = {}) {
     info: {
       name: '', producer: '', vintage: '', color: 'red', style: 'still',
       grapes: [], country: '', region: '',
-      price: '', currency, shop: '', date: today(), place: '', companions: '',
+      price: '', shop: '', date: today(), place: '', companions: '',
     },
     photo: '',
     sat: {
@@ -35,9 +35,9 @@ export function emptyRecord({ blind = false, currency = 'KRW' } = {}) {
   };
 }
 
-// 이전 버전 기록이나 가져온 파일에 빠진 필드를 채움 (통화가 없던 기록은 원화)
+// 이전 버전 기록이나 가져온 파일에 빠진 필드를 채움
 export function normalize(r) {
-  const base = emptyRecord({ currency: 'KRW' });
+  const base = emptyRecord();
   const merge = (a, b) => {
     const out = { ...a };
     for (const k of Object.keys(b || {})) {
@@ -68,8 +68,7 @@ export function autoScore(r) {
     ? norm(i.region).includes(norm(g.region)) || norm(g.region).includes(norm(i.region)) : null;
   const vb = vintageBand(i.vintage, i.date);
   res.vintageBand = g.vintageBand && vb ? g.vintageBand === vb : null;
-  // 가격대는 실제 가격을 현재 환율로 원화 환산해 비교
-  const pb = priceBand(i.price, i.currency);
+  const pb = priceBand(i.price);
   res.priceBand = g.priceBand && pb ? g.priceBand === pb : null;
   return res;
 }
