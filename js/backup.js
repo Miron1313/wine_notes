@@ -57,7 +57,7 @@ export async function exportCSV() {
     [t('f.region'), (r) => r.info.region], [t('f.price'), (r) => r.info.price],
     [t('f.shop'), (r) => r.info.shop], [t('f.place'), (r) => r.info.place], [t('f.companions'), (r) => r.info.companions],
     ['Clarity', (r) => r.sat.appearance.clarity], ['Intensity (appearance)', (r) => r.sat.appearance.intensity], ['Colour', (r) => r.sat.appearance.colour],
-    ['Condition', (r) => r.sat.nose.condition], ['Intensity (nose)', (r) => r.sat.nose.intensity], ['Aromas', (r) => r.sat.nose.aromas.join(', ')],
+    ['Condition', (r) => r.sat.nose.condition], ['Openness', (r) => r.sat.nose.openness], ['Opened up after', (r) => r.sat.nose.openedAfter], ['Intensity (nose)', (r) => r.sat.nose.intensity], ['Aromas', (r) => r.sat.nose.aromas.join(', ')],
     ['Sweetness', (r) => r.sat.palate.sweetness], ['Acidity', (r) => r.sat.palate.acidity], ['Tannin', (r) => r.sat.palate.tannin],
     ['Alcohol', (r) => r.sat.palate.alcohol], ['Body', (r) => r.sat.palate.body], ['Flavour intensity', (r) => r.sat.palate.flavourIntensity],
     ['Flavours', (r) => r.sat.palate.flavours.join(', ')], ['Finish', (r) => r.sat.palate.finish],

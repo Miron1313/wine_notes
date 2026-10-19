@@ -19,7 +19,7 @@ export function emptyRecord({ blind = false } = {}) {
     photo: '',
     sat: {
       appearance: { clarity: 'clear', intensity: '', colour: '' },
-      nose: { condition: 'clean', intensity: '', aromas: [], notes: '' },
+      nose: { condition: 'clean', intensity: '', openness: '', openedAfter: '', aromas: [], notes: '' },
       palate: {
         sweetness: '', acidity: '', tannin: '', alcohol: '', body: '',
         flavourIntensity: '', flavours: [], finish: '', notes: '',
