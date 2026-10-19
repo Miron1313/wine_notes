@@ -1,6 +1,6 @@
 // 오프라인 지원: 앱 파일을 캐시해 두고, 온라인이면 새 버전을 받아 갱신
 // 앱 파일을 바꾸면 VERSION을 올려 주세요.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = `wine-log-${VERSION}`;
 const ASSETS = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
