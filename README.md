@@ -25,7 +25,7 @@ WSET Level 2 SAT(Systematic Approach to Tasting) 기준으로 마신 와인을 �
    (무료 플랜 Pages 조건. 공개되는 것은 코드뿐이고, 기록 데이터는 각자의 폰에만 있습니다.)
 2. Settings → **Pages** → Build and deployment → Source: **GitHub Actions**
 3. 이 브랜치를 `main`에 병합하면 `.github/workflows/pages.yml`이 자동 배포합니다.
-4. 주소: `https://miron1313.github.io/Claude_code_mobile/`
+4. 주소: `https://miron1313.github.io/wine_notes/`
 
 ## 로컬 실행
 ```bash
