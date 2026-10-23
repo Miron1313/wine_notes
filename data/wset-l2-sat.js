@@ -151,14 +151,14 @@ export const METHOD_KEYS = { sparkling: ['traditional', 'tank', 'other'], fortif
 // 8대 주요 품종. match는 기록의 품종명과 비교할 소문자 이름 (슬래시로 나뉜 별칭 포함)
 // subs: 샤르도네처럼 스타일별로 따로 체크하는 항목
 export const PRINCIPAL_GRAPES = [
-  { key: 'Chardonnay', ko: '샤르도네', match: ['chardonnay'], subs: ['cool', 'warm', 'oak'] },
-  { key: 'Pinot Grigio/Gris', ko: '피노 그리지오/그리', match: ['pinot grigio', 'pinot gris'] },
-  { key: 'Sauvignon Blanc', ko: '소비뇽 블랑', match: ['sauvignon blanc'] },
-  { key: 'Riesling', ko: '리슬링', match: ['riesling'] },
-  { key: 'Cabernet Sauvignon', ko: '카베르네 소비뇽', match: ['cabernet sauvignon'] },
-  { key: 'Merlot', ko: '메를로', match: ['merlot'] },
-  { key: 'Pinot Noir', ko: '피노 누아', match: ['pinot noir'] },
-  { key: 'Syrah/Shiraz', ko: '시라/쉬라즈', match: ['syrah', 'shiraz'] },
+  { key: 'Chardonnay', ko: '샤르도네', match: ['chardonnay'], subs: ['cool', 'warm', 'oak'], pair: ['Chablis (France)', 'California (USA)'] },
+  { key: 'Pinot Grigio/Gris', ko: '피노 그리지오/그리', match: ['pinot grigio', 'pinot gris'], pair: ['Veneto / Friuli (Italy)', 'Alsace (France)'] },
+  { key: 'Sauvignon Blanc', ko: '소비뇽 블랑', match: ['sauvignon blanc'], pair: ['Marlborough (New Zealand)', 'Sancerre (France)'] },
+  { key: 'Riesling', ko: '리슬링', match: ['riesling'], pair: ['Mosel (Germany)', 'Clare / Eden Valley (Australia)'] },
+  { key: 'Cabernet Sauvignon', ko: '카베르네 소비뇽', match: ['cabernet sauvignon'], pair: ['Médoc (Bordeaux)', 'Napa Valley (USA)'] },
+  { key: 'Merlot', ko: '메를로', match: ['merlot'], pair: ['Saint-Émilion / Pomerol (Bordeaux)', 'Chile'] },
+  { key: 'Pinot Noir', ko: '피노 누아', match: ['pinot noir'], pair: ['Burgundy (France)', 'Central Otago (New Zealand)'] },
+  { key: 'Syrah/Shiraz', ko: '시라/쉬라즈', match: ['syrah', 'shiraz'], pair: ['Northern Rhône (France)', 'Barossa Valley (Australia)'] },
 ];
 
 // 스타일 진도 (스파클링: 전통/탱크, 주정강화: 셰리/포트)
@@ -167,5 +167,20 @@ export const PROGRESS_STYLES = [
   { style: 'fortified', subs: ['sherry', 'port'] },
 ];
 
+// 다음 병 추천에 쓰는 대표 산지 예시 (상품명·가격은 넣지 않음)
+export const SUB_EXAMPLES = {
+  cool: 'Chablis, Côte de Beaune', warm: 'California, South Australia', oak: 'Meursault, Napa Valley',
+  traditional: 'Champagne, Cava, Crémant', tank: 'Prosecco',
+  sherry: 'Fino, Oloroso (Jerez)', port: 'Ruby, Tawny (Douro)',
+};
+
+// 원인 → 결과 입력값 (선택)
+export const WINEMAKING_KEYS = ['stainless', 'oak', 'mlf', 'lees', 'carbonic'];
+export const AGEING_KEYS = ['young', 'bottle', 'oxidative'];
+export const TERTIARY_TERMS = LEXICON.find((g) => g.group === 'Tertiary').clusters.filter((c) => c.name.startsWith('Bottle'))
+  .flatMap((c) => c.terms.map(([en]) => en));
+export const OXIDATIVE_TERMS = LEXICON.find((g) => g.group === 'Tertiary').clusters.find((c) => c.name === 'Oxidation').terms.map(([en]) => en);
+export const YEAST_TERMS = LEXICON.find((g) => g.group === 'Secondary').clusters.find((c) => c.name === 'Yeast').terms.map(([en]) => en);
+export const MLF_TERMS = LEXICON.find((g) => g.group === 'Secondary').clusters.find((c) => c.name === 'Malolactic').terms.map(([en]) => en);
 // 오크 숙성 판단용 용어 (Lexicon의 Oak 묶음)
 export const OAK_TERMS = LEXICON.find((g) => g.group === 'Secondary').clusters.find((c) => c.name === 'Oak').terms.map(([en]) => en);

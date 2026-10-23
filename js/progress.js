@@ -73,7 +73,7 @@ export function progressMarkdown(records) {
       [title(r), r.info.vintage].filter(Boolean).join(' '),
       r.info.grapes.join(', '),
       [r.info.region, r.info.country].filter(Boolean).join(', '),
-      formatKRW(r.info.price),
+      formatKRW(r.info.spent || r.info.price),
       r.personal.verdict ? t(`verdict.${r.personal.verdict}`) : '',
       r.personal.learning,
     ].map(cell).join(' | ')} |`),

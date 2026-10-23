@@ -13,6 +13,7 @@ export function emptyRecord({ blind = false } = {}) {
     updatedAt: now,
     info: {
       name: '', producer: '', vintage: '', color: 'red', style: 'still', method: '', climate: '',
+      gi: '', labelTerms: [], winemaking: [], ageing: '', spent: '',
       grapes: [], country: '', region: '',
       price: '', shop: '', date: today(), place: '', companions: '',
     },
