@@ -5,7 +5,10 @@ import {
 } from './model.js';
 import { renderForm } from './form.js';
 import { renderStats, renderCompare } from './stats.js';
-import { exportJSON, importJSON, exportCSV, lastBackup, needsBackupReminder } from './backup.js';
+import {
+  exportJSON, importJSON, exportCSV, exportMarkdown, lastBackup, needsBackupReminder,
+} from './backup.js';
+import { getBudget, setBudget } from './budget.js';
 import { t, getLang, setLang, locale, LANGS } from './i18n.js';
 import { formatKRW } from './money.js';
 import { COLOR_KEYS } from '../data/wset-l2-sat.js';
@@ -102,7 +105,8 @@ async function renderView(id) {
     [t('f.grapes'), i.grapes.join(', ')], [t('f.region'), [i.region, i.country].filter(Boolean).join(', ')],
     [t('f.price'), [formatKRW(i.price), i.shop].filter(Boolean).join(' · ')],
   ];
-  info.push([t('f.style'), `${colorLabel(i.color)} · ${styleLabel(i.style)}`], [t('f.date'), i.date],
+  if (!hidden && i.climate) info.push([t('f.climate'), t(`climate.${i.climate}`)]);
+  info.push([t('f.style'), [colorLabel(i.color), styleLabel(i.style), i.method && t(`method.${i.method}`)].filter(Boolean).join(' · ')], [t('f.date'), i.date],
     [t('f.place'), i.place], [t('f.companions'), i.companions]);
 
   view.innerHTML = `
@@ -128,7 +132,9 @@ async function renderView(id) {
         ${r.sat.conclusion.reason ? `<p class="note">${esc(t('note.reason', r.sat.conclusion.reason))}</p>` : ''}
       </section>
 
-      ${r.personal.rating || r.personal.rebuy || r.personal.notes ? `<section class="card"><h2>${esc(t('sec.personal'))}</h2>
+      ${r.personal.rating || r.personal.rebuy || r.personal.notes || r.personal.verdict || r.personal.learning ? `<section class="card"><h2>${esc(t('sec.personal'))}</h2>
+        ${r.personal.verdict ? `<p><span class="verdict ${r.personal.verdict}">${esc(t(`verdict.${r.personal.verdict}`))}</span></p>` : ''}
+        ${r.personal.learning ? `<p class="learning">💡 ${esc(r.personal.learning)}</p>` : ''}
         ${r.personal.rating ? `<div class="stars static">${'★'.repeat(r.personal.rating)}${'☆'.repeat(5 - r.personal.rating)}</div>` : ''}
         ${r.personal.rebuy ? `<p>${esc(t('note.rebuy', t(`rebuy.${r.personal.rebuy}`)))}</p>` : ''}
         ${r.personal.notes ? `<p class="note">${esc(r.personal.notes)}</p>` : ''}</section>` : ''}
@@ -152,12 +158,21 @@ async function doBackup() {
   } catch (e) { toast(t('toast.backupFail', e.message)); }
 }
 
+async function doMarkdown() {
+  try {
+    const n = await exportMarkdown();
+    if (n !== false) toast(t('toast.md', n));
+  } catch (e) { toast(t('toast.backupFail', e.message)); }
+}
+
 async function renderSettings() {
   const count = (await db.all()).length;
   const last = lastBackup();
   let persisted = null;
   try { persisted = await navigator.storage?.persisted?.(); } catch { /* 무시 */ }
   const est = await navigator.storage?.estimate?.().catch(() => null);
+  if (!location.hash.startsWith('#/settings')) return; // 기다리는 사이 다른 화면으로 이동함
+  const budget = getBudget();
   const storage = t(persisted ? 'storage.on' : persisted === false ? 'storage.off' : 'storage.unknown');
 
   view.innerHTML = `
@@ -175,6 +190,18 @@ async function renderSettings() {
         <button class="btn" id="csv">${esc(t('backup.csv'))}</button>
       </div>
     </section>
+    <section class="card"><h2>${esc(t('md.section'))}</h2>
+      <p class="muted small">${esc(t('md.explain'))}</p>
+      <button class="btn primary" id="md">${esc(t('md.export'))}</button>
+    </section>
+    <section class="card"><h2>${esc(t('budget.settings'))}</h2>
+      <p class="muted small">${esc(t('budget.explain'))}</p>
+      <form id="budget-form" class="budget-form" onsubmit="return false">
+        ${[['limit', 'budget.limit'], ['excLimit', 'budget.excLimit'], ['excCount', 'budget.excCount']].map(([k, l]) => `
+          <label>${esc(t(l))}<input type="number" inputmode="numeric" min="0" name="${k}" value="${budget[k]}"></label>`).join('')}
+        <button class="btn" id="budget-save">${esc(t('btn.save'))}</button>
+      </form>
+    </section>
     <section class="card"><h2>${esc(t('install.title'))}</h2>
       <p class="small">${t('install.how')}</p>
       <p class="muted small">${esc(t('install.note'))}</p>
@@ -189,6 +216,12 @@ async function renderSettings() {
   $('#lang-chips').onclick = (e) => { const b = e.target.closest('[data-lang]'); if (b) changeLang(b.dataset.lang); };
   $('#backup').onclick = async () => { await doBackup(); renderSettings(); };
   $('#csv').onclick = async () => { const n = await exportCSV(); toast(t('toast.csv', n)); };
+  $('#md').onclick = () => doMarkdown();
+  $('#budget-save').onclick = () => {
+    setBudget(Object.fromEntries(new FormData($('#budget-form'))));
+    toast(t('budget.saved'));
+    renderSettings();
+  };
   $('#restore').onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;

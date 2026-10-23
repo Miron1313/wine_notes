@@ -237,3 +237,36 @@ table.grid { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
   font-size: 0.9rem; max-width: calc(100% - 32px); text-align: center;
 }
 .toast[hidden] { display: none; }
+
+/* Level 2 진도 · 예산 · 구매 판정 */
+:root { --warn: #9a6200; }
+@media (prefers-color-scheme: dark) { :root { --warn: #f2b84b; } }
+.ok-text { color: var(--ok); }
+.warn-text { color: var(--warn); }
+.ng-text { color: var(--ng); }
+.budget-note { margin-top: 6px; min-height: 1.2em; }
+.progress { list-style: none; padding: 0; margin: 0 0 8px; }
+.progress li { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.progress li:last-child { border-bottom: 0; }
+.progress .check {
+  flex: 0 0 22px; height: 22px; border: 2px solid var(--border); border-radius: 6px;
+  display: grid; place-items: center; font-size: 0.8rem; font-weight: 700;
+}
+.progress li.done .check { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.progress .pl { min-width: 0; }
+.subs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.sub { font-size: 0.75rem; padding: 1px 8px; border-radius: 10px; background: var(--surface-2); color: var(--muted); }
+.sub.done { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.plain { list-style: none; padding: 0; margin: 8px 0; }
+.plain li { padding: 3px 0; }
+.tag { font-size: 0.75rem; padding: 1px 6px; border-radius: 8px; margin-right: 4px; font-weight: 600; }
+.tag.exception { background: var(--surface-2); color: var(--warn); }
+.tag.over { background: var(--surface-2); color: var(--ng); }
+.verdict { display: inline-block; padding: 3px 10px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; background: var(--surface-2); }
+.verdict.strong { background: var(--primary); color: var(--primary-ink); }
+.verdict.buy { background: var(--primary-soft); color: var(--primary); }
+.verdict.no { color: var(--muted); }
+.learning { background: var(--primary-soft); padding: 10px 12px; border-radius: 10px; font-size: 0.92rem; }
+.budget-form { display: grid; gap: 10px; }
+.budget-form label { display: grid; gap: 4px; font-size: 0.88rem; }
+#budget .kpi b { font-size: 1.15rem; white-space: nowrap; }

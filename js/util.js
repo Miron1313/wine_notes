@@ -47,3 +47,14 @@ export function download(filename, text, type) {
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
+
+// iOS 홈 화면 앱에서는 다운로드 대신 공유 시트로 파일 앱/드라이브에 저장. 취소하면 false
+export async function saveFile(name, text, type) {
+  const file = typeof File !== 'undefined' ? new File([text], name, { type }) : null;
+  if (file && navigator.canShare?.({ files: [file] }) && /iPhone|iPad/.test(navigator.userAgent)) {
+    try { await navigator.share({ files: [file], title: name }); } catch (e) { if (e.name === 'AbortError') return false; throw e; }
+  } else {
+    download(name, text, type);
+  }
+  return true;
+}

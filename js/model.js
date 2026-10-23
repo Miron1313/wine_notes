@@ -12,7 +12,7 @@ export function emptyRecord({ blind = false } = {}) {
     createdAt: now,
     updatedAt: now,
     info: {
-      name: '', producer: '', vintage: '', color: 'red', style: 'still',
+      name: '', producer: '', vintage: '', color: 'red', style: 'still', method: '', climate: '',
       grapes: [], country: '', region: '',
       price: '', shop: '', date: today(), place: '', companions: '',
     },
@@ -31,7 +31,7 @@ export function emptyRecord({ blind = false } = {}) {
       guess: { grape: '', country: '', region: '', vintageBand: '', priceBand: '' },
       result: {},
     },
-    personal: { rating: 0, rebuy: '', notes: '' },
+    personal: { rating: 0, rebuy: '', verdict: '', learning: '', notes: '' },
   };
 }
 
@@ -49,6 +49,9 @@ export function normalize(r) {
 }
 
 export const isHidden = (r) => r.blind.enabled && !r.blind.revealed;
+
+// 구매 판정 등급 (Claude 프로젝트의 채점 기준: 80+ / 65~79 / 50~64 / ~49)
+export const VERDICT_KEYS = ['strong', 'buy', 'conditional', 'no'];
 
 export const BLIND_KEYS = ['grape', 'country', 'region', 'vintageBand', 'priceBand'];
 
