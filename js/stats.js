@@ -3,7 +3,56 @@ import { SAT, SCALE_INDEX, COLOR_KEYS } from '../data/wset-l2-sat.js';
 import { db } from './db.js';
 import { normalize, isHidden, BLIND_KEYS, blindKeyLabel, blindScore, title, colorLabel } from './model.js';
 import { t, hint } from './i18n.js';
-import { esc } from './util.js';
+import { esc, toast, today } from './util.js';
+import { computeProgress, grapeName, subLabel } from './progress.js';
+import { classifyMonth, monthOf } from './budget.js';
+import { exportMarkdown } from './backup.js';
+import { formatKRW } from './money.js';
+
+const subChips = (subs) => (subs.length ? `<span class="subs">${subs.map((x) => `
+  <span class="sub${x.done ? ' done' : ''}">${x.done ? '✓ ' : ''}${esc(subLabel(x.key))}</span>`).join('')}</span>` : '');
+
+// 🎓 8대 품종 + 스타일 진도 (기록에서 자동 집계)
+function progressCard(all) {
+  const p = computeProgress(all);
+  const row = (done, label, n, subs, href) => `<li class="${done ? 'done' : ''}">
+    <span class="check">${done ? '✓' : ''}</span>
+    <span class="pl">${href ? `<a href="${href}">${esc(label)}</a>` : esc(label)}${n ? ` <small class="muted">×${n}</small>` : ''}${subChips(subs)}</span></li>`;
+  return `<section class="card" id="progress"><h2>${esc(t('progress.title'))}</h2>
+    ${bar(esc(t('progress.core')), p.done, p.total, `${p.done}/${p.total}`)}
+    <h3>${esc(t('md.grapes'))}</h3>
+    <ul class="progress">${p.grapes.map((g) => row(g.done, grapeName(g.grape), g.count, g.subs,
+      g.done ? `#/compare?grape=${encodeURIComponent(g.grape.key)}` : '')).join('')}</ul>
+    <h3>${esc(t('md.styles'))}</h3>
+    <ul class="progress">${p.styles.map((x) => row(x.done, t(`style.${x.style}`), x.count, x.subs)).join('')}</ul>
+    <h3>${esc(t('progress.regional'))}</h3>
+    ${p.regional.length ? `<div class="chips">${p.regional.map(([n, c]) => `<span class="chip small on">${esc(n)}${c > 1 ? ` ×${c}` : ''}</span>`).join('')}</div>`
+      : `<p class="muted small">${esc(t('stats.none'))}</p>`}
+    <p class="muted small">${esc(t('progress.hint'))}</p>
+    <button class="btn" id="md-export">${esc(t('md.export'))}</button>
+  </section>`;
+}
+
+// 💰 이번 달 예산
+function budgetCard(all) {
+  const m = classifyMonth(all, monthOf(today()));
+  const { limit, excLimit, excCount } = m.budget;
+  const label = { exception: t('budget.tagExc'), over: t('budget.tagOver') };
+  const flagged = m.rows.filter((r) => m.status[r.id] !== 'ok');
+  return `<section class="card" id="budget"><h2>${esc(t('budget.title'))}</h2>
+    ${m.rows.length ? `
+      <div class="kpis">
+        <div class="kpi"><b>${m.rows.length}</b><span>${esc(t('budget.bottles'))}</span></div>
+        <div class="kpi"><b>${esc(formatKRW(m.total, { compact: true }))}</b><span>${esc(t('budget.total'))}</span></div>
+        <div class="kpi"><b>${m.used}/${excCount}</b><span>${esc(t('budget.excUsed'))}</span></div>
+      </div>
+      ${m.over ? `<p class="ng-text small">${esc(t('budget.over', m.over))}</p>` : ''}
+      ${flagged.length ? `<ul class="plain small">${flagged.map((r) => `<li><span class="tag ${m.status[r.id]}">${esc(label[m.status[r.id]])}</span>
+        <a href="#/view/${r.id}">${esc(title(r))}</a> · ${esc(formatKRW(r.info.price))}</li>`).join('')}</ul>` : ''}`
+      : `<p class="muted small">${esc(t('budget.none'))}</p>`}
+    <p class="muted small">${esc(t('budget.rule', { l: formatKRW(limit), e: formatKRW(excLimit), c: excCount }))} · <a href="#/settings">${esc(t('nav.settings'))}</a></p>
+  </section>`;
+}
 
 const bar = (label, value, max, text) => `
   <div class="bar-row"><div class="bar-label">${label}</div>
@@ -66,6 +115,9 @@ export async function renderStats(root) {
       <div class="kpi"><b>${Object.keys(groups).length}</b><span>${esc(t('kpi.grapes'))}</span></div>
     </div>
 
+    ${progressCard(all)}
+    ${budgetCard(all)}
+
     <section class="card"><h2>${esc(t('stats.colour'))}</h2>
       ${byColor.map(([c, n]) => bar(esc(colorLabel(c)), n, all.length)).join('')}</section>
 
@@ -96,6 +148,13 @@ export async function renderStats(root) {
     <section class="card"><h2>${esc(t('stats.quality'))}</h2>
       ${qCounts.map(([item, n]) => bar(`${esc(item[0])}${hint(item) ? ` <small>${esc(hint(item))}</small>` : ''}`, n, qMax)).join('')}
     </section>`;
+
+  root.querySelector('#md-export').onclick = async () => {
+    try {
+      const n = await exportMarkdown();
+      if (n !== false) toast(t('toast.md', n));
+    } catch (e) { toast(t('toast.backupFail', e.message)); }
+  };
 }
 
 export async function renderCompare(root, params) {

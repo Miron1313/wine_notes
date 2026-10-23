@@ -1,11 +1,14 @@
 // 새 기록 / 수정 / 블라인드 정답 공개 화면
 import {
-  SAT, LEXICON, GRAPES, COUNTRIES, COLOR_KEYS, STYLE_KEYS, VINTAGE_BAND_KEYS, PRICE_BAND_KEYS,
+  SAT, LEXICON, GRAPES, COUNTRIES, COLOR_KEYS, STYLE_KEYS, VINTAGE_BAND_KEYS, PRICE_BAND_KEYS, CLIMATE_KEYS, METHOD_KEYS,
 } from '../data/wset-l2-sat.js';
 import { db } from './db.js';
-import { emptyRecord, normalize, isHidden, autoScore, BLIND_KEYS, blindKeyLabel, bandLabel } from './model.js';
+import {
+  emptyRecord, normalize, isHidden, autoScore, BLIND_KEYS, VERDICT_KEYS, blindKeyLabel, bandLabel,
+} from './model.js';
+import { classifyMonth, monthOf } from './budget.js';
 import { t, hint } from './i18n.js';
-import { priceBandLabel } from './money.js';
+import { priceBandLabel, formatKRW } from './money.js';
 import { esc, $, $$, toast, resizeImage } from './util.js';
 
 const getPath = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
@@ -78,6 +81,18 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
   let dirty = false;
 
   const showAnswers = () => !isHidden(rec) || reveal;
+  const others = (await db.all()).map(normalize).filter((r) => r.id !== rec.id); // 예산 판정용
+
+  // 가격 입력 아래 예산 안내 (이번 달 다른 기록과 함께 판정)
+  function budgetNote() {
+    if (!(Number(rec.info.price) > 0)) return '';
+    const m = classifyMonth([...others, rec], monthOf(rec.info.date));
+    const st = m.status[rec.id];
+    const { limit, excCount } = m.budget;
+    if (st === 'ok') return `<span class="ok-text">${esc(t('budget.ok', formatKRW(limit)))}</span>`;
+    if (st === 'exception') return `<span class="warn-text">${esc(t('budget.useExc', { u: m.used, a: excCount }))}</span>`;
+    return `<span class="ng-text">${esc(t('budget.overNote'))}</span>`;
+  }
 
   function scoreBox() {
     const g = rec.blind.guess;
@@ -121,6 +136,8 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
       <section id="sec-info"><h2>${esc(t('sec.info'))}</h2>
         ${field(t('f.color'), '', optionChips('info.color', COLOR_KEYS.map((k) => [k, t(`color.${k}`)]), i.color))}
         ${field(t('f.style'), '', optionChips('info.style', STYLE_KEYS.map((k) => [k, t(`style.${k}`)]), i.style))}
+        ${METHOD_KEYS[i.style] ? field(t(`f.method.${i.style}`), t('optional'),
+          optionChips('info.method', METHOD_KEYS[i.style].map((k) => [k, t(`method.${k}`)]), i.method)) : ''}
         ${hidden ? `<p class="note">${esc(t('form.hiddenNote'))}</p>` : `
           ${field(t('f.name'), '', input('info.name', i.name, { placeholder: eg('Chablis Premier Cru') }))}
           ${field(t('f.producer'), '', input('info.producer', i.producer, { placeholder: eg('William Fèvre') }))}
@@ -131,7 +148,9 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
             <button type="button" class="btn small" id="grape-add">${esc(t('btn.add'))}</button></div>`)}
           ${field(t('f.country'), '', input('info.country', i.country, { list: 'dl-countries', placeholder: eg('France') }))}
           ${field(t('f.region'), '', input('info.region', i.region, { placeholder: eg('Chablis, Burgundy') }))}
-          ${field(t('f.price'), '₩', input('info.price', i.price, { type: 'number', placeholder: '₩', inputmode: 'numeric' }))}
+          ${field(t('f.climate'), t('optional'), optionChips('info.climate', CLIMATE_KEYS.map((k) => [k, t(`climate.${k}`)]), i.climate))}
+          ${field(t('f.price'), '₩', `${input('info.price', i.price, { type: 'number', placeholder: '₩', inputmode: 'numeric' })}
+            <div class="small budget-note" id="budget-note">${budgetNote()}</div>`)}
           ${field(t('f.shop'), '', input('info.shop', i.shop, { placeholder: t('ph.shop') }))}`}
         ${field(t('f.date'), '', input('info.date', i.date, { type: 'date' }))}
         ${field(t('f.place'), '', input('info.place', i.place, { placeholder: t('ph.place') }))}
@@ -186,6 +205,8 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
       </section>` : ''}
 
       <section id="sec-personal"><h2>${esc(t('sec.personal'))}</h2>
+        ${field(t('f.verdict'), '', optionChips('personal.verdict', VERDICT_KEYS.map((k) => [k, t(`verdict.${k}`)]), rec.personal.verdict))}
+        ${field(t('f.learning'), '', input('personal.learning', rec.personal.learning, { placeholder: t('ph.learning') }))}
         ${field(t('f.rating'), '', `<div class="stars" data-path="personal.rating">${[1, 2, 3, 4, 5].map((n) => `
           <button type="button" data-star="${n}" class="${n <= rec.personal.rating ? 'on' : ''}" aria-label="${n}">★</button>`).join('')}</div>`)}
         ${field(t('f.rebuy'), '', optionChips('personal.rebuy', ['yes', 'maybe', 'no'].map((k) => [k, t(`rebuy.${k}`)]), rec.personal.rebuy))}
@@ -219,6 +240,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     setPath(rec, p, e.target.value);
     dirty = true;
     if (p.startsWith('info.')) rescore();
+    if (p === 'info.price' || p === 'info.date') { const el = $('#budget-note', root); if (el) el.innerHTML = budgetNote(); }
   };
 
   root.onchange = async (e) => {
@@ -242,11 +264,16 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     const group = b.closest('.chips[data-path]');
     if (group && b.dataset.v !== undefined) {
       const p = group.dataset.path;
-      const v = getPath(rec, p) === b.dataset.v && !p.startsWith('info.') ? '' : b.dataset.v;
+      // 색·스타일은 항상 하나가 선택되어 있어야 함. 나머지는 다시 누르면 해제
+      const required = p === 'info.color' || p === 'info.style';
+      const v = getPath(rec, p) === b.dataset.v && !required ? '' : b.dataset.v;
       setPath(rec, p, v);
       dirty = true;
       if (p === 'sat.nose.openness') {
         rerender(); // 닫힘·열리는 중일 때만 '열린 시점' 표시
+      } else if (p === 'info.style') {
+        if (!METHOD_KEYS[v]?.includes(rec.info.method)) rec.info.method = '';
+        rerender(); // 스파클링·주정강화일 때만 방식 선택 표시
       } else if (p === 'info.color') {
         if (!SAT.appearance.fields.colour.byColor[v]?.some(([en]) => en === rec.sat.appearance.colour)) rec.sat.appearance.colour = '';
         rerender();
