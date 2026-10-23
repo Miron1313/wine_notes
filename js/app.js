@@ -8,7 +8,11 @@ import { renderStats, renderCompare } from './stats.js';
 import {
   exportJSON, importJSON, exportCSV, exportMarkdown, lastBackup, needsBackupReminder,
 } from './backup.js';
-import { getBudget, setBudget } from './budget.js';
+import {
+  getBudget, setMonthlyBudget, budgetFor, thisMonth, monthLabel,
+} from './budget.js';
+import { causeEffectHTML, renderGlossary } from './study.js';
+import { LABEL_TERMS, termNote } from '../data/label-terms.js';
 import { t, getLang, setLang, locale, LANGS } from './i18n.js';
 import { formatKRW } from './money.js';
 import { COLOR_KEYS } from '../data/wset-l2-sat.js';
@@ -104,8 +108,13 @@ async function renderView(id) {
   const info = hidden ? [] : [
     [t('f.grapes'), i.grapes.join(', ')], [t('f.region'), [i.region, i.country].filter(Boolean).join(', ')],
     [t('f.price'), [formatKRW(i.price), i.shop].filter(Boolean).join(' · ')],
+    [t('f.spent'), formatKRW(i.spent)], [t('f.gi'), i.gi],
   ];
-  if (!hidden && i.climate) info.push([t('f.climate'), t(`climate.${i.climate}`)]);
+  if (!hidden) {
+    info.push([t('f.climate'), i.climate && t(`climate.${i.climate}`)],
+      [t('f.winemaking'), i.winemaking.map((k) => t(`wm.${k}`)).join(', ')], [t('f.ageing'), i.ageing && t(`ag.${i.ageing}`)]);
+  }
+  const terms = hidden ? [] : LABEL_TERMS.filter((row) => i.labelTerms.includes(row[0]));
   info.push([t('f.style'), [colorLabel(i.color), styleLabel(i.style), i.method && t(`method.${i.method}`)].filter(Boolean).join(' · ')], [t('f.date'), i.date],
     [t('f.place'), i.place], [t('f.companions'), i.companions]);
 
@@ -123,6 +132,10 @@ async function renderView(id) {
           const g = k.endsWith('Band') ? (r.blind.guess[k] && bandLabel(r.blind.guess[k])) : r.blind.guess[k];
           return `<li class="${v === true ? 'ok' : v === false ? 'ng' : 'na'}">${v === true ? '✓' : v === false ? '✗' : '–'} ${esc(blindKeyLabel(k))}: ${esc(g || '—')}</li>`;
         }).join('')}</ul></section>` : ''}
+
+      ${terms.length ? `<section class="card"><h2>${esc(t('f.labelTerms'))}</h2><dl class="glossary">${terms.map((row) => `
+        <dt>${esc(row[0])}</dt><dd>${esc(termNote(row, getLang()))}</dd>`).join('')}</dl></section>` : ''}
+      ${hidden ? '' : causeEffectHTML(r)}
 
       <section class="card sat"><h2>${esc(t('sat.note'))} <button class="btn small ghost" id="copy-sat">${esc(t('btn.copy'))}</button></h2>
         ${satLines(r).map((s) => `<h3>${s.label}${s.hint ? ` <span class="ko">${esc(s.hint)}</span>` : ''}</h3>
@@ -197,10 +210,12 @@ async function renderSettings() {
     <section class="card"><h2>${esc(t('budget.settings'))}</h2>
       <p class="muted small">${esc(t('budget.explain'))}</p>
       <form id="budget-form" class="budget-form" onsubmit="return false">
-        ${[['limit', 'budget.limit'], ['excLimit', 'budget.excLimit'], ['excCount', 'budget.excCount']].map(([k, l]) => `
-          <label>${esc(t(l))}<input type="number" inputmode="numeric" min="0" name="${k}" value="${budget[k]}"></label>`).join('')}
+        <label>${esc(t('budget.amount'))}<input type="number" inputmode="numeric" min="0" name="amount" value="${budgetFor(thisMonth(), budget) || ''}" placeholder="₩"></label>
         <button class="btn" id="budget-save">${esc(t('btn.save'))}</button>
       </form>
+      <p class="muted small">${esc(t('budget.zeroHint'))}</p>
+      ${budget.history.length ? `<h3>${esc(t('budget.history'))}</h3><ul class="plain small">${budget.history.map((h) => `
+        <li>${esc(t('budget.from', { m: monthLabel(h.from), a: h.amount ? formatKRW(h.amount) : '—' }))}</li>`).join('')}</ul>` : ''}
     </section>
     <section class="card"><h2>${esc(t('install.title'))}</h2>
       <p class="small">${t('install.how')}</p>
@@ -218,7 +233,7 @@ async function renderSettings() {
   $('#csv').onclick = async () => { const n = await exportCSV(); toast(t('toast.csv', n)); };
   $('#md').onclick = () => doMarkdown();
   $('#budget-save').onclick = () => {
-    setBudget(Object.fromEntries(new FormData($('#budget-form'))));
+    setMonthlyBudget($('#budget-form [name="amount"]').value);
     toast(t('budget.saved'));
     renderSettings();
   };
@@ -283,6 +298,7 @@ async function route({ keepScroll = false } = {}) {
       case 'stats': await renderStats(view); break;
       case 'compare': await renderCompare(view, params); break;
       case 'settings': await renderSettings(); break;
+      case 'glossary': renderGlossary(view, params); break;
       default: location.hash = '#/';
     }
   } catch (err) {

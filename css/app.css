@@ -259,9 +259,6 @@ table.grid { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 .sub.done { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 .plain { list-style: none; padding: 0; margin: 8px 0; }
 .plain li { padding: 3px 0; }
-.tag { font-size: 0.75rem; padding: 1px 6px; border-radius: 8px; margin-right: 4px; font-weight: 600; }
-.tag.exception { background: var(--surface-2); color: var(--warn); }
-.tag.over { background: var(--surface-2); color: var(--ng); }
 .verdict { display: inline-block; padding: 3px 10px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; background: var(--surface-2); }
 .verdict.strong { background: var(--primary); color: var(--primary-ink); }
 .verdict.buy { background: var(--primary-soft); color: var(--primary); }
@@ -269,4 +266,26 @@ table.grid { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 .learning { background: var(--primary-soft); padding: 10px 12px; border-radius: 10px; font-size: 0.92rem; }
 .budget-form { display: grid; gap: 10px; }
 .budget-form label { display: grid; gap: 4px; font-size: 0.88rem; }
-#budget .kpi b { font-size: 1.15rem; white-space: nowrap; }
+#budget .kpi b { font-size: 1.1rem; white-space: nowrap; }
+.kpi small { display: block; font-size: 0.72rem; }
+.left { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  background: var(--primary-soft); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.left b { font-size: 1.4rem; color: var(--primary); }
+.left.ng { background: var(--surface-2); }
+.left.ng b { color: var(--ng); }
+.grid.lots td:not(:first-child), .grid.lots th:not(:first-child) { text-align: right; white-space: nowrap; }
+.row.wrap { flex-wrap: wrap; }
+
+/* 학습용 입력 · 원인 → 결과 · 다음 병 · 용어 사전 */
+details.study { border: 1px dashed var(--border); border-radius: 12px; padding: 8px 12px; margin: 8px 0 12px; }
+details.study > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.ce { list-style: none; padding: 0; margin: 0; }
+.ce li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.ce li:last-child { border-bottom: 0; }
+.next { padding-left: 20px; margin: 0 0 8px; }
+.next li { padding: 6px 0; }
+.tag-k { font-size: 0.72rem; padding: 1px 7px; border-radius: 8px; background: var(--primary-soft); color: var(--primary); font-weight: 600; margin-right: 6px; }
+dl.glossary { display: block; margin: 0 0 8px; }
+.glossary dt { font-weight: 700; margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.glossary dd { margin: 2px 0 0; font-size: 0.9rem; color: var(--muted); }
+#gq { width: 100%; margin-bottom: 8px; }

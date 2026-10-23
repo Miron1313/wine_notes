@@ -1,13 +1,15 @@
 // 새 기록 / 수정 / 블라인드 정답 공개 화면
 import {
   SAT, LEXICON, GRAPES, COUNTRIES, COLOR_KEYS, STYLE_KEYS, VINTAGE_BAND_KEYS, PRICE_BAND_KEYS, CLIMATE_KEYS, METHOD_KEYS,
+  WINEMAKING_KEYS, AGEING_KEYS,
 } from '../data/wset-l2-sat.js';
+import { LABEL_TERMS, LABEL_GROUPS, termNote } from '../data/label-terms.js';
 import { db } from './db.js';
 import {
   emptyRecord, normalize, isHidden, autoScore, BLIND_KEYS, VERDICT_KEYS, blindKeyLabel, bandLabel,
 } from './model.js';
-import { classifyMonth, monthOf } from './budget.js';
-import { t, hint } from './i18n.js';
+import { ledger, monthOf, monthLabel, thisMonth } from './budget.js';
+import { t, hint, getLang } from './i18n.js';
 import { priceBandLabel, formatKRW } from './money.js';
 import { esc, $, $$, toast, resizeImage } from './util.js';
 
@@ -72,6 +74,28 @@ function lexiconPicker(path, selected) {
   </div>`;
 }
 
+// 여러 개 고르는 칩 (양조 방식 등). 항목 [key, label]
+function multiChips(path, options, values) {
+  return `<div class="chips" data-multi="${path}">${options.map(([k, label]) => `
+    <button type="button" class="chip${values.includes(k) ? ' on' : ''}" data-v="${esc(k)}">${esc(label)}</button>`).join('')}</div>`;
+}
+
+// 라벨 용어: 고른 용어는 뜻과 함께 표시
+function labelTermPicker(selected) {
+  const lang = getLang();
+  const sel = new Set(selected);
+  const chosen = LABEL_TERMS.filter((row) => sel.has(row[0]));
+  return `<div class="label-terms">
+    ${chosen.length ? `<dl class="glossary">${chosen.map((row) => `<dt>${esc(row[0])}
+      <button type="button" class="chip small on" data-label-term="${esc(row[0])}">✕</button></dt><dd>${esc(termNote(row, lang))}</dd>`).join('')}</dl>`
+      : `<p class="muted small">${esc(t('label.empty'))}</p>`}
+    ${LABEL_GROUPS.map((g) => `<details class="lex-group"><summary>${esc(t(`lg.${g}`))}</summary><div class="chips">
+      ${LABEL_TERMS.filter((row) => row[1] === g).map((row) => `
+        <button type="button" class="chip small${sel.has(row[0]) ? ' on' : ''}" data-label-term="${esc(row[0])}">${esc(row[0])}</button>`).join('')}
+    </div></details>`).join('')}
+  </div>`;
+}
+
 export async function renderForm(root, { id, blind = false, reveal = false } = {}) {
   const raw = id ? await db.get(id) : null;
   if (id && !raw) { root.innerHTML = `<p class="empty">${esc(t('notFound'))}</p>`; return null; }
@@ -83,15 +107,16 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
   const showAnswers = () => !isHidden(rec) || reveal;
   const others = (await db.all()).map(normalize).filter((r) => r.id !== rec.id); // 예산 판정용
 
-  // 가격 입력 아래 예산 안내 (이번 달 다른 기록과 함께 판정)
+  // 구매 금액 아래 예산 안내: 저장하면 그 달 남은 예산이 얼마인지
   function budgetNote() {
-    if (!(Number(rec.info.price) > 0)) return '';
-    const m = classifyMonth([...others, rec], monthOf(rec.info.date));
-    const st = m.status[rec.id];
-    const { limit, excCount } = m.budget;
-    if (st === 'ok') return `<span class="ok-text">${esc(t('budget.ok', formatKRW(limit)))}</span>`;
-    if (st === 'exception') return `<span class="warn-text">${esc(t('budget.useExc', { u: m.used, a: excCount }))}</span>`;
-    return `<span class="ng-text">${esc(t('budget.overNote'))}</span>`;
+    if (!(Number(rec.info.spent) > 0)) return '';
+    const m = monthOf(rec.info.date);
+    const lg = ledger([...others, rec], m > thisMonth() ? m : thisMonth());
+    if (!lg) return `<span class="muted">${esc(t('budget.noBudgetShort'))}</span>`;
+    const e = lg.months.find((x) => x.month === m);
+    if (!e) return `<span class="muted">${esc(t('budget.beforeStart', monthLabel(lg.start)))}</span>`;
+    if (e.over > 0) return `<span class="ng-text">${esc(t('budget.previewOver', { m: monthLabel(m), x: formatKRW(e.over) }))}</span>`;
+    return `<span class="ok-text">${esc(t('budget.preview', { m: monthLabel(m), x: formatKRW(e.left) }))}</span>`;
   }
 
   function scoreBox() {
@@ -148,10 +173,19 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
             <button type="button" class="btn small" id="grape-add">${esc(t('btn.add'))}</button></div>`)}
           ${field(t('f.country'), '', input('info.country', i.country, { list: 'dl-countries', placeholder: eg('France') }))}
           ${field(t('f.region'), '', input('info.region', i.region, { placeholder: eg('Chablis, Burgundy') }))}
-          ${field(t('f.climate'), t('optional'), optionChips('info.climate', CLIMATE_KEYS.map((k) => [k, t(`climate.${k}`)]), i.climate))}
-          ${field(t('f.price'), '₩', `${input('info.price', i.price, { type: 'number', placeholder: '₩', inputmode: 'numeric' })}
+          ${field(t('f.price'), '₩', input('info.price', i.price, { type: 'number', placeholder: '₩', inputmode: 'numeric' }))}
+          ${field(t('f.spent'), '₩', `<div class="row">${input('info.spent', i.spent, { type: 'number', placeholder: t('ph.spent'), inputmode: 'numeric' })}
+              ${i.price ? `<button type="button" class="btn small" id="spent-same">${esc(t('btn.samePrice'))}</button>` : ''}</div>
             <div class="small budget-note" id="budget-note">${budgetNote()}</div>`)}
-          ${field(t('f.shop'), '', input('info.shop', i.shop, { placeholder: t('ph.shop') }))}`}
+          ${field(t('f.shop'), '', input('info.shop', i.shop, { placeholder: t('ph.shop') }))}
+          <details class="study"><summary>${esc(t('sec.study'))}</summary>
+            ${field(t('f.climate'), t('optional'), optionChips('info.climate', CLIMATE_KEYS.map((k) => [k, t(`climate.${k}`)]), i.climate))}
+            ${field(t('f.winemaking'), t('multi'), multiChips('info.winemaking', WINEMAKING_KEYS.map((k) => [k, t(`wm.${k}`)]), i.winemaking))}
+            ${field(t('f.ageing'), t('optional'), optionChips('info.ageing', AGEING_KEYS.map((k) => [k, t(`ag.${k}`)]), i.ageing))}
+            ${field(t('f.gi'), t('optional'), input('info.gi', i.gi, { placeholder: t('ph.gi') }))}
+            ${field(t('f.labelTerms'), '', labelTermPicker(i.labelTerms))}
+            <p class="small"><a href="#/glossary">${esc(t('glossary.open'))}</a></p>
+          </details>`}
         ${field(t('f.date'), '', input('info.date', i.date, { type: 'date' }))}
         ${field(t('f.place'), '', input('info.place', i.place, { placeholder: t('ph.place') }))}
         ${field(t('f.companions'), '', input('info.companions', i.companions))}
@@ -240,7 +274,7 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
     setPath(rec, p, e.target.value);
     dirty = true;
     if (p.startsWith('info.')) rescore();
-    if (p === 'info.price' || p === 'info.date') { const el = $('#budget-note', root); if (el) el.innerHTML = budgetNote(); }
+    if (p === 'info.spent' || p === 'info.date') { const el = $('#budget-note', root); if (el) el.innerHTML = budgetNote(); }
   };
 
   root.onchange = async (e) => {
@@ -280,6 +314,26 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
       } else {
         $$('.chip', group).forEach((c) => c.classList.toggle('on', c.dataset.v === v));
       }
+      return;
+    }
+
+    // 여러 개 고르는 칩
+    const multi = b.closest('.chips[data-multi]');
+    if (multi && b.dataset.v !== undefined) {
+      const arr = getPath(rec, multi.dataset.multi);
+      const idx = arr.indexOf(b.dataset.v);
+      if (idx >= 0) arr.splice(idx, 1); else arr.push(b.dataset.v);
+      dirty = true;
+      b.classList.toggle('on', idx < 0);
+      return;
+    }
+
+    if (b.dataset.labelTerm) {
+      const arr = rec.info.labelTerms;
+      const idx = arr.indexOf(b.dataset.labelTerm);
+      if (idx >= 0) arr.splice(idx, 1); else arr.push(b.dataset.labelTerm);
+      dirty = true;
+      rerender();
       return;
     }
 
@@ -335,6 +389,11 @@ export async function renderForm(root, { id, blind = false, reveal = false } = {
         rerender();
         break;
       }
+      case 'spent-same':
+        rec.info.spent = rec.info.price;
+        dirty = true;
+        rerender();
+        break;
       case 'copy-aromas':
         for (const a of rec.sat.nose.aromas) if (!rec.sat.palate.flavours.includes(a)) rec.sat.palate.flavours.push(a);
         dirty = true;

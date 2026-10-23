@@ -3,7 +3,7 @@ import { db } from './db.js';
 import { normalize, isHidden, title, colorLabel } from './model.js';
 import { t } from './i18n.js';
 import { download, saveFile, today } from './util.js';
-import { getBudget, setBudget } from './budget.js';
+import { getBudget, restoreBudget } from './budget.js';
 import { progressMarkdown } from './progress.js';
 
 const LAST_BACKUP = 'wine-log:lastBackup';
@@ -39,7 +39,7 @@ export async function importJSON(file) {
   const data = JSON.parse(await file.text());
   const rows = Array.isArray(data) ? data : data.tastings;
   if (!Array.isArray(rows)) throw new Error(t('import.invalid'));
-  if (data.settings?.budget) setBudget(data.settings.budget);
+  if (data.settings?.budget) restoreBudget(data.settings.budget);
   let added = 0; let updated = 0; let skipped = 0;
   for (const raw of rows) {
     if (!raw?.id) { skipped++; continue; }
@@ -56,7 +56,10 @@ export async function exportCSV() {
     [t('f.date'), (r) => r.info.date], [t('csv.wine'), (r) => title(r)], [t('f.vintage'), (r) => r.info.vintage],
     [t('f.color'), (r) => colorLabel(r.info.color)], [t('f.grapes'), (r) => r.info.grapes.join(' / ')], [t('f.country'), (r) => r.info.country],
     [t('f.region'), (r) => r.info.region], [t('f.climate'), (r) => (r.info.climate ? t(`climate.${r.info.climate}`) : '')],
-    [t('f.method'), (r) => (r.info.method ? t(`method.${r.info.method}`) : '')], [t('f.price'), (r) => r.info.price],
+    [t('f.method'), (r) => (r.info.method ? t(`method.${r.info.method}`) : '')],
+    [t('f.winemaking'), (r) => r.info.winemaking.map((k) => t(`wm.${k}`)).join(', ')], [t('f.ageing'), (r) => (r.info.ageing ? t(`ag.${r.info.ageing}`) : '')],
+    [t('f.gi'), (r) => r.info.gi], [t('f.labelTerms'), (r) => r.info.labelTerms.join(', ')],
+    [t('f.price'), (r) => r.info.price], [t('f.spent'), (r) => r.info.spent],
     [t('f.shop'), (r) => r.info.shop], [t('f.place'), (r) => r.info.place], [t('f.companions'), (r) => r.info.companions],
     ['Clarity', (r) => r.sat.appearance.clarity], ['Intensity (appearance)', (r) => r.sat.appearance.intensity], ['Colour', (r) => r.sat.appearance.colour],
     ['Condition', (r) => r.sat.nose.condition], ['Openness', (r) => r.sat.nose.openness], ['Opened up after', (r) => r.sat.nose.openedAfter], ['Intensity (nose)', (r) => r.sat.nose.intensity], ['Aromas', (r) => r.sat.nose.aromas.join(', ')],

@@ -5,7 +5,8 @@ import { normalize, isHidden, BLIND_KEYS, blindKeyLabel, blindScore, title, colo
 import { t, hint } from './i18n.js';
 import { esc, toast, today } from './util.js';
 import { computeProgress, grapeName, subLabel } from './progress.js';
-import { classifyMonth, monthOf } from './budget.js';
+import { ledger, spendingSummary, monthLabel, thisMonth } from './budget.js';
+import { nextBottlesHTML } from './study.js';
 import { exportMarkdown } from './backup.js';
 import { formatKRW } from './money.js';
 
@@ -29,28 +30,43 @@ function progressCard(all) {
     ${p.regional.length ? `<div class="chips">${p.regional.map(([n, c]) => `<span class="chip small on">${esc(n)}${c > 1 ? ` ×${c}` : ''}</span>`).join('')}</div>`
       : `<p class="muted small">${esc(t('stats.none'))}</p>`}
     <p class="muted small">${esc(t('progress.hint'))}</p>
-    <button class="btn" id="md-export">${esc(t('md.export'))}</button>
+    <div class="row wrap"><button class="btn" id="md-export">${esc(t('md.export'))}</button>
+      <a class="btn ghost" href="#/glossary">${esc(t('glossary.open'))}</a></div>
   </section>`;
 }
 
-// 💰 이번 달 예산
+// 💰 예산 (이월금액 포함)과 지출 합계
 function budgetCard(all) {
-  const m = classifyMonth(all, monthOf(today()));
-  const { limit, excLimit, excCount } = m.budget;
-  const label = { exception: t('budget.tagExc'), over: t('budget.tagOver') };
-  const flagged = m.rows.filter((r) => m.status[r.id] !== 'ok');
+  const m = thisMonth();
+  const lg = ledger(all, m);
+  const e = lg?.months.at(-1);
+  const sp = spendingSummary(all);
+  const rowLabel = (row) => t(row.month === m ? 'budget.monthBudget' : 'budget.carry', monthLabel(row.month));
+  const mMax = Math.max(1, ...sp.monthly.map(([, v]) => v));
+  const kpi = (x, label) => `<div class="kpi"><b>${esc(formatKRW(x.total, { compact: true, zero: true }))}</b><span>${esc(label)}</span>
+    <small class="muted">${esc(t('spend.count', x.n))}</small></div>`;
+
   return `<section class="card" id="budget"><h2>${esc(t('budget.title'))}</h2>
-    ${m.rows.length ? `
-      <div class="kpis">
-        <div class="kpi"><b>${m.rows.length}</b><span>${esc(t('budget.bottles'))}</span></div>
-        <div class="kpi"><b>${esc(formatKRW(m.total, { compact: true }))}</b><span>${esc(t('budget.total'))}</span></div>
-        <div class="kpi"><b>${m.used}/${excCount}</b><span>${esc(t('budget.excUsed'))}</span></div>
+    ${e ? `
+      <div class="left ${e.over ? 'ng' : ''}">
+        <span>${esc(t('budget.left', monthLabel(m)))}</span>
+        <b>${esc(e.over ? t('budget.overBy', formatKRW(e.over)) : formatKRW(e.left, { zero: true }))}</b>
       </div>
-      ${m.over ? `<p class="ng-text small">${esc(t('budget.over', m.over))}</p>` : ''}
-      ${flagged.length ? `<ul class="plain small">${flagged.map((r) => `<li><span class="tag ${m.status[r.id]}">${esc(label[m.status[r.id]])}</span>
-        <a href="#/view/${r.id}">${esc(title(r))}</a> · ${esc(formatKRW(r.info.price))}</li>`).join('')}</ul>` : ''}`
-      : `<p class="muted small">${esc(t('budget.none'))}</p>`}
-    <p class="muted small">${esc(t('budget.rule', { l: formatKRW(limit), e: formatKRW(excLimit), c: excCount }))} · <a href="#/settings">${esc(t('nav.settings'))}</a></p>
+      ${bar(esc(t('budget.usedOf')), Math.min(e.spent, e.available), e.available, `${formatKRW(e.spent, { zero: true })} / ${formatKRW(e.available, { zero: true })}`)}
+      ${e.rows.length ? `<div class="table-wrap"><table class="grid lots">
+        <thead><tr><th>${esc(t('budget.colItem'))}</th><th>${esc(t('budget.colStart'))}</th><th>${esc(t('budget.colUsed'))}</th><th>${esc(t('budget.colLeft'))}</th></tr></thead>
+        <tbody>${e.rows.map((row) => `<tr><td>${esc(rowLabel(row))}</td><td>${esc(formatKRW(row.start))}</td>
+          <td>${row.used ? `−${esc(formatKRW(row.used))}` : '·'}</td><td><b>${esc(formatKRW(row.left, { zero: true }))}</b></td></tr>`).join('')}</tbody>
+      </table></div>` : ''}
+      <p class="muted small">${esc(t('budget.order'))}</p>`
+      : `<p class="muted small">${esc(t('budget.noBudget'))} <a href="#/settings">${esc(t('budget.set'))}</a></p>`}
+
+    <h3>${esc(t('spend.title'))}</h3>
+    <div class="kpis">${kpi(sp.month, t('spend.month'))}${kpi(sp.year, t('spend.year'))}${kpi(sp.all, t('spend.all'))}</div>
+    ${sp.all.n ? `<p class="muted small">${esc(t('spend.avg', formatKRW(Math.round(sp.all.total / sp.all.n))))}</p>
+      <h3>${esc(t('spend.monthly'))}</h3>
+      ${sp.monthly.filter(([, v], idx) => v || idx >= 6).map(([mm, v]) => bar(esc(mm), v, mMax, esc(formatKRW(v, { compact: true }) || '·'))).join('')}`
+      : `<p class="muted small">${esc(t('spend.none'))}</p>`}
   </section>`;
 }
 
@@ -116,6 +132,7 @@ export async function renderStats(root) {
     </div>
 
     ${progressCard(all)}
+    ${nextBottlesHTML(all)}
     ${budgetCard(all)}
 
     <section class="card"><h2>${esc(t('stats.colour'))}</h2>
