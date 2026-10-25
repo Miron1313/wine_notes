@@ -289,3 +289,22 @@ dl.glossary { display: block; margin: 0 0 8px; }
 .glossary dt { font-weight: 700; margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .glossary dd { margin: 2px 0 0; font-size: 0.9rem; color: var(--muted); }
 #gq { width: 100%; margin-bottom: 8px; }
+
+/* 퀴즈 · 전형성 */
+.btn.block { display: flex; width: 100%; justify-content: center; margin: 8px 0 14px; }
+.quiz-cta { margin-top: 0; }
+.quiz-bar { margin: 0 0 12px; }
+.quiz .q { font-size: 1.08rem; font-weight: 700; margin: 0 0 12px; }
+.options { display: grid; gap: 8px; margin-bottom: 12px; }
+.opt {
+  text-align: left; padding: 12px 14px; min-height: 48px; border-radius: 12px; font: inherit; font-size: 0.95rem;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer;
+}
+.opt.right { background: var(--ok); border-color: var(--ok); color: #fff; }
+.opt.wrong { background: var(--ng); border-color: var(--ng); color: #fff; }
+.opt.dim { opacity: 0.55; }
+.feedback { margin: 4px 0 8px; }
+.score-big { font-size: 2.6rem; font-weight: 800; color: var(--primary); }
+.left-align { text-align: left; }
+.left-align li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.grid.typ td:last-child { text-align: center; }
