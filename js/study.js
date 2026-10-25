@@ -1,9 +1,10 @@
 // 학습 도우미: 원인 → 결과, 다음에 마실 병, 라벨 용어 사전
 import {
-  OAK_TERMS, MLF_TERMS, YEAST_TERMS, TERTIARY_TERMS, OXIDATIVE_TERMS, SUB_EXAMPLES,
+  SAT, OAK_TERMS, MLF_TERMS, YEAST_TERMS, TERTIARY_TERMS, OXIDATIVE_TERMS, SUB_EXAMPLES,
 } from '../data/wset-l2-sat.js';
 import { LABEL_TERMS, LABEL_GROUPS, termNote } from '../data/label-terms.js';
-import { computeProgress, grapeName, subLabel } from './progress.js';
+import { TYPICAL } from '../data/typical.js';
+import { computeProgress, grapeName, subLabel, principalOf } from './progress.js';
 import { t, getLang } from './i18n.js';
 import { esc } from './util.js';
 
@@ -83,6 +84,35 @@ export function renderGlossary(root, params) {
   root.innerHTML = `<h1>${esc(t('glossary.title'))}</h1>
     <input type="search" id="gq" placeholder="${esc(t('glossary.search'))}" value="${esc(q)}">
     <p class="muted small">${esc(t('glossary.note'))}</p>
+    <a class="btn block" href="#/quiz">${esc(t('quiz.open'))}</a>
     <div id="gl">${draw(q)}</div>`;
   root.querySelector('#gq').oninput = (e) => { root.querySelector('#gl').innerHTML = draw(e.target.value.toLowerCase().trim()); };
+}
+
+// 📚 전형성 체크: 첫 번째 품종이 8대 품종이면 교과서 프로필과 내 노트 비교
+const TYP_FIELDS = ['sweetness', 'acidity', 'tannin', 'alcohol', 'body'];
+const range = (vals) => (vals.length > 1 ? `${vals[0]}–${vals[vals.length - 1]}` : vals[0]);
+
+export function typicality(r) {
+  const g = r.info.grapes.map(principalOf).find(Boolean);
+  const p = g && TYPICAL[g.key];
+  if (!p) return null;
+  const rows = TYP_FIELDS.filter((f) => p[f] && r.sat.palate[f])
+    .map((f) => ({ field: f, label: SAT.palate.fields[f].label, mine: r.sat.palate[f], ok: p[f].includes(r.sat.palate[f]), expected: range(p[f]) }));
+  const mine = new Set([...r.sat.nose.aromas, ...r.sat.palate.flavours]);
+  return { grape: g, rows, hit: p.aromas.filter((a) => mine.has(a)), look: p.aromas.filter((a) => !mine.has(a)).slice(0, 5) };
+}
+
+export function typicalityHTML(r) {
+  const x = typicality(r);
+  if (!x) return '';
+  return `<section class="card" id="typ"><h2>${esc(t('typ.title', grapeName(x.grape)))}</h2>
+    ${x.rows.length ? `<div class="table-wrap"><table class="grid typ">
+      <thead><tr><th></th><th>${esc(t('typ.mine'))}</th><th>${esc(t('typ.book'))}</th><th></th></tr></thead>
+      <tbody>${x.rows.map((row) => `<tr class="${row.ok ? '' : 'diff'}"><th>${esc(row.label)}</th><td>${esc(row.mine)}</td><td>${esc(row.expected)}</td>
+        <td>${row.ok ? '<span class="ok-text">✓</span>' : '<span class="warn-text">△</span>'}</td></tr>`).join('')}</tbody>
+    </table></div>` : `<p class="muted small">${esc(t('typ.none'))}</p>`}
+    ${x.hit.length ? `<p class="small ok-text">✓ ${esc(t('typ.hit', x.hit.join(', ')))}</p>` : ''}
+    ${x.look.length ? `<p class="small">🔍 ${esc(t('typ.look', x.look.join(', ')))}</p>` : ''}
+    <p class="muted small">${esc(t('typ.note'))}</p></section>`;
 }

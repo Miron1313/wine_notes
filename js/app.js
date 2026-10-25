@@ -11,7 +11,8 @@ import {
 import {
   getBudget, setMonthlyBudget, budgetFor, thisMonth, monthLabel,
 } from './budget.js';
-import { causeEffectHTML, renderGlossary } from './study.js';
+import { causeEffectHTML, renderGlossary, typicalityHTML } from './study.js';
+import { renderQuiz } from './quiz.js';
 import { LABEL_TERMS, termNote } from '../data/label-terms.js';
 import { t, getLang, setLang, locale, LANGS } from './i18n.js';
 import { formatKRW } from './money.js';
@@ -136,6 +137,7 @@ async function renderView(id) {
       ${terms.length ? `<section class="card"><h2>${esc(t('f.labelTerms'))}</h2><dl class="glossary">${terms.map((row) => `
         <dt>${esc(row[0])}</dt><dd>${esc(termNote(row, getLang()))}</dd>`).join('')}</dl></section>` : ''}
       ${hidden ? '' : causeEffectHTML(r)}
+      ${hidden ? '' : typicalityHTML(r)}
 
       <section class="card sat"><h2>${esc(t('sat.note'))} <button class="btn small ghost" id="copy-sat">${esc(t('btn.copy'))}</button></h2>
         ${satLines(r).map((s) => `<h3>${s.label}${s.hint ? ` <span class="ko">${esc(s.hint)}</span>` : ''}</h3>
@@ -299,6 +301,7 @@ async function route({ keepScroll = false } = {}) {
       case 'compare': await renderCompare(view, params); break;
       case 'settings': await renderSettings(); break;
       case 'glossary': renderGlossary(view, params); break;
+      case 'quiz': await renderQuiz(view); break;
       default: location.hash = '#/';
     }
   } catch (err) {

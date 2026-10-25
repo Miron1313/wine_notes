@@ -4,6 +4,7 @@ import { normalize, isHidden, title, colorLabel } from './model.js';
 import { t } from './i18n.js';
 import { download, saveFile, today } from './util.js';
 import { getBudget, restoreBudget } from './budget.js';
+import { getQuizState, restoreQuizState } from './quiz.js';
 import { progressMarkdown } from './progress.js';
 
 const LAST_BACKUP = 'wine-log:lastBackup';
@@ -21,7 +22,7 @@ export function needsBackupReminder(count) {
 
 export async function exportJSON() {
   const rows = await db.all();
-  const payload = { app: 'wine-log', version: 1, exportedAt: new Date().toISOString(), settings: { budget: getBudget() }, tastings: rows };
+  const payload = { app: 'wine-log', version: 1, exportedAt: new Date().toISOString(), settings: { budget: getBudget(), quiz: getQuizState() }, tastings: rows };
   if (!(await saveFile(`${today()}-wine-log-backup.json`, JSON.stringify(payload), 'application/json'))) return false;
   try { localStorage.setItem(LAST_BACKUP, String(Date.now())); } catch { /* 무시 */ }
   return rows.length;
@@ -40,6 +41,7 @@ export async function importJSON(file) {
   const rows = Array.isArray(data) ? data : data.tastings;
   if (!Array.isArray(rows)) throw new Error(t('import.invalid'));
   if (data.settings?.budget) restoreBudget(data.settings.budget);
+  if (data.settings?.quiz) restoreQuizState(data.settings.quiz);
   let added = 0; let updated = 0; let skipped = 0;
   for (const raw of rows) {
     if (!raw?.id) { skipped++; continue; }

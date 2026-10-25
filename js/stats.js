@@ -82,7 +82,8 @@ const withHint = (label, h) => `${esc(label)}${h ? ` <span class="ko">${esc(h)}<
 export async function renderStats(root) {
   const all = (await db.all()).map(normalize);
   if (!all.length) {
-    root.innerHTML = `<h1>${esc(t('stats.title'))}</h1><p class="empty">${esc(t('stats.empty'))}</p>`;
+    root.innerHTML = `<h1>${esc(t('stats.title'))}</h1><a class="btn primary block quiz-cta" href="#/quiz">${esc(t('quiz.open'))}</a>
+      <p class="empty">${esc(t('stats.empty'))}</p>`;
     return;
   }
   const open = all.filter((r) => !isHidden(r));
@@ -125,6 +126,7 @@ export async function renderStats(root) {
 
   root.innerHTML = `
     <h1>${esc(t('stats.title'))}</h1>
+    <a class="btn primary block quiz-cta" href="#/quiz">${esc(t('quiz.open'))}</a>
     <div class="kpis">
       <div class="kpi"><b>${all.length}</b><span>${esc(t('kpi.total'))}</span></div>
       <div class="kpi"><b>${blinds.length}</b><span>${esc(t('kpi.blind'))}</span></div>

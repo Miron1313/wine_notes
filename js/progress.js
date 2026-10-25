@@ -10,7 +10,7 @@ const aliases = (g) => norm(g).split('/').map((x) => x.trim());
 export const grapeName = (g) => (getLang() === 'ko' ? g.ko : g.key);
 export const subLabel = (k) => t(['cool', 'warm', 'oak'].includes(k) ? `sub.${k}` : `method.${k}`);
 
-const principalOf = (name) => PRINCIPAL_GRAPES.find((g) => aliases(name).some((a) => g.match.includes(a)));
+export const principalOf = (name) => PRINCIPAL_GRAPES.find((g) => aliases(name).some((a) => g.match.includes(a)));
 
 // 블라인드 공개 전 기록은 품종·스타일을 모르므로 제외
 export function computeProgress(records) {
